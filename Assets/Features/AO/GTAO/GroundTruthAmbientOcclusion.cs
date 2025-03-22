@@ -70,9 +70,10 @@ namespace Features.AO.GTAO
                 m_SSAOPass = new ScreenSpaceAmbientOcclusionPass();
             }
 
+
             GetMaterial();
         }
-
+        
         /// <inheritdoc/>
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
         {
@@ -93,7 +94,6 @@ namespace Features.AO.GTAO
             if (shouldAdd)
             {
                 renderer.EnqueuePass(m_SSAOPass);
-
             }
         }
 
@@ -148,8 +148,8 @@ namespace Features.AO.GTAO
             private RTHandle m_BlurVerticalRT;
 
             private RTHandle m_FinalRT;
+            public RTHandle TargetRT => m_FinalRT;
             private ScreenSpaceAmbientOcclusionSettings m_CurrentSettings;
-            private TemporalDenoiser _denoiser = null;
 
             // Constants
             private const string k_SSAOTextureName = "_ScreenSpaceOcclusionTexture";
@@ -170,6 +170,7 @@ namespace Features.AO.GTAO
                 Shader.PropertyToID("_CameraViewTopLeftCorner");
 
             private static readonly int SSAO_UVToView_ID = Shader.PropertyToID("_SSAO_UVToView");
+            private TemporalDenoiser m_TemporalDenoiser = null;
 
             private enum ShaderPasses
             {
@@ -182,20 +183,19 @@ namespace Features.AO.GTAO
 
             public override void Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor)
             {
-                ConfigureInput(ScriptableRenderPassInput.Motion);
+                
             }
 
             internal ScreenSpaceAmbientOcclusionPass()
             {
                 m_CurrentSettings = new ScreenSpaceAmbientOcclusionSettings();
-                _denoiser = new TemporalDenoiser();
+                m_TemporalDenoiser = new TemporalDenoiser();
             }
 
             internal bool Setup(ScreenSpaceAmbientOcclusionSettings featureSettings,Material material)
             {
                 m_Material = material;
                 m_CurrentSettings = featureSettings;
-
                 ScreenSpaceAmbientOcclusionSettings.DepthSource source;
                 if (isRendererDeferred)
                 {
@@ -219,11 +219,11 @@ namespace Features.AO.GTAO
                 switch (source)
                 {
                     case ScreenSpaceAmbientOcclusionSettings.DepthSource.Depth:
-                        ConfigureInput(ScriptableRenderPassInput.Depth);
+                        ConfigureInput(ScriptableRenderPassInput.Depth|ScriptableRenderPassInput.Motion);
                         break;
                     case ScreenSpaceAmbientOcclusionSettings.DepthSource.DepthNormals:
                         ConfigureInput(ScriptableRenderPassInput
-                            .Normal); // need depthNormal prepass for forward-only geometry
+                            .Normal|ScriptableRenderPassInput.Motion); // need depthNormal prepass for forward-only geometry
                         break;
                     default:
                         throw new ArgumentOutOfRangeException();
@@ -360,7 +360,8 @@ namespace Features.AO.GTAO
                     : RenderTextureFormat.ARGB32;
                 RenderingUtils.ReAllocateIfNeeded(ref m_FinalRT, descriptor, name: "FinalRT");
 
-                _denoiser.Setup(cmd,ref renderingData);
+                m_TemporalDenoiser.Setup(cmd,renderingData,m_FinalRT);
+
                 // Get temporary render textures
                 // m_Material.SetTexture(s_SSAOTexture1ID, m_AOPassRT);
                 // m_Material.SetTexture(s_SSAOTexture2ID, m_BlurRT);
@@ -406,7 +407,6 @@ namespace Features.AO.GTAO
                     // _denoiser.Setup(m_FinalRT);
                     // _denoiser.CaptureHistory(cmd,m_FinalRT);
                     //
-                    _denoiser.DoTemporalAntiAliasing(renderingData.cameraData,cmd,m_FinalRT);
                     // SetSourceSize(cmd, m_BlurHorizonRT.rt.descriptor);
                     // RenderAndSetBaseMap(cmd, m_SSAOTexture2Target, m_SSAOTexture3Target, ShaderPasses.BlurVertical);
                     // RenderAndSetBaseMap(cmd, m_SSAOTexture3Target, m_SSAOTextureFinalTarget,
@@ -414,6 +414,8 @@ namespace Features.AO.GTAO
 
                     // Set the global SSAO texture and AO Params
                     cmd.SetGlobalTexture(k_SSAOTextureName, m_FinalRT);
+                    m_TemporalDenoiser.Execute(cmd,ref renderingData);
+
                     cmd.SetGlobalVector(k_SSAOAmbientOcclusionParamName,
                         new Vector4(1f, 0f, 0f, m_CurrentSettings.DirectLightingStrength));
 
@@ -428,7 +430,6 @@ namespace Features.AO.GTAO
                             (int)ShaderPasses.AfterOpaque);
                     }
                 }
-
                 context.ExecuteCommandBuffer(cmd);
                 CommandBufferPool.Release(cmd);
             }

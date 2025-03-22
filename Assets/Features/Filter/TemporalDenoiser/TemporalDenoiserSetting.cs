@@ -7,11 +7,11 @@ namespace Features.Filter.TemporalDenoiser
 {
     public sealed class TemporalDenoiserSetting:VolumeComponent, IPostProcessComponent
     {
-        [Tooltip("The quality of AntiAliasing")]
-        public MotionBlurQualityParameter quality = new MotionBlurQualityParameter(MotionBlurQuality.Low);
 
-        [Tooltip("Sampling Distance")]
-        public ClampedFloatParameter spread = new ClampedFloatParameter(1.0f, 0f, 1f);
+        public VarianceClippingParameter varianceClipping = new VarianceClippingParameter(VarianceClipping._4Tap);
+
+        // [Tooltip("Sampling Distance")]
+        // public ClampedFloatParameter spread = new ClampedFloatParameter(1.0f, 0f, 1f);
         
         [Tooltip("Feedback")]
         public ClampedFloatParameter feedback = new ClampedFloatParameter(0.0f, 0f, 1f);
@@ -21,5 +21,17 @@ namespace Features.Filter.TemporalDenoiser
         public bool IsTileCompatible() => false;
     }
 
-    
+    public enum VarianceClipping
+    {
+        Disabled,
+        _4Tap,
+        _8Tap
+    }
+    [Serializable]
+    public sealed class VarianceClippingParameter : VolumeParameter<VarianceClipping>
+    {
+        public VarianceClippingParameter(VarianceClipping value, bool overrideState = false)
+            : base(value, overrideState) { }
+    }
+
 }
