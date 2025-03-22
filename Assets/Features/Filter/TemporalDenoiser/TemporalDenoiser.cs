@@ -64,10 +64,9 @@ namespace Features.Filter.TemporalDenoiser
             var writeIndex = frameCount % 2;
         
             
-            foreach (var enabledKeyword in TemporalDenoiserMaterial.enabledKeywords)
-            {
-                TemporalDenoiserMaterial.DisableKeyword(enabledKeyword);
-            }
+            CoreUtils.SetKeyword(cmd,"VARIANCE_CLIPPING_4TAP",false);
+            CoreUtils.SetKeyword(cmd,"VARIANCE_CLIPPING_8TAP",false);
+
             switch (setting.varianceClipping.value)
             {
                 case VarianceClipping.Disabled:

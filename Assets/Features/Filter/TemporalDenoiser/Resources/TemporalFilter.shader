@@ -21,7 +21,7 @@
 
 
             HLSLPROGRAM
-            #pragma multi_compile_local_fragment __ VARIANCE_CLIPPING_4TAP VARIANCE_CLIPPING_8TAP
+            #pragma multi_compile_fragment __ VARIANCE_CLIPPING_4TAP VARIANCE_CLIPPING_8TAP
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
