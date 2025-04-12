@@ -1,0 +1,19 @@
+{
+  "name": "com.unity.render-pipelines.universal.extension",
+  "description": "URP Extension features",
+  "displayName": "URP Extension",
+  "version": "17.0.3",
+  "keywords": [
+    "graphics",
+    "performance",
+    "rendering",
+    "Toon",
+    "mobile",
+    "render",
+    "pipeline"
+  ],
+  "author": {
+    "name": "af8a2a",
+    "url": "https://github.com/af8a2a/URP_Extension"
+  }
+}
