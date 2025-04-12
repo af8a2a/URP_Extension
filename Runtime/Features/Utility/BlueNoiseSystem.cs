@@ -3,7 +3,6 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
-using UnityEngine.Rendering.Universal;
 
 namespace URP_Extension.Features.Utility
 {
@@ -17,29 +16,26 @@ namespace URP_Extension.Features.Utility
     /// A bank of nvidia pre-generated spatiotemporal blue noise textures.
     /// ref: https://github.com/NVIDIAGameWorks/SpatiotemporalBlueNoiseSDK/tree/main
     /// </summary>
+    [Serializable]
     public sealed class BlueNoiseSystem : IDisposable
     {
-        private static Lazy<BlueNoiseSystem>  m_Instance = new Lazy<BlueNoiseSystem>();
+        private static Lazy<BlueNoiseSystem> m_Instance = new Lazy<BlueNoiseSystem>();
 
         public static BlueNoiseSystem Instance => m_Instance.Value;
-        
+
         public static int blueNoiseArraySize = 64;
 
         /// <summary>
         /// STBN, Spatial-Temporal Blue Noise, vec1
         /// </summary>
-        [SerializeField]
-        [ResourceFormattedPaths(
-            "URP_Extension/Features/Utility/Textures/STBN/vec1/stbn_vec1_2Dx1D_128x128x64_{0}.png", 0, 64)]
-        readonly Texture2D[] m_Textures128R = new Texture2D[64];
+        [SerializeField] //[Reload("Textures/STBN/vec1/stbn_vec1_2Dx1D_128x128x64_{0}.png", 0, 64)]
+        internal Texture2D[] m_Textures128R = new Texture2D[64];
 
         /// <summary>
         /// STBN, Spatial-Temporal Blue Noise, vec1
         /// </summary>
-        [SerializeField]
-        [ResourceFormattedPaths(
-            "URP_Extension/Features/Utility/Textures/STBN/vec2/stbn_vec1_2Dx1D_128x128x64_{0}.png", 0, 64)]
-        readonly Texture2D[] m_Textures128RG = new Texture2D[64];
+        [SerializeField] //[Reload("Textures/STBN/vec2/stbn_vec1_2Dx1D_128x128x64_{0}.png", 0, 64)]
+        internal Texture2D[] m_Textures128RG = new Texture2D[64];
 
 
         [ResourceFormattedPaths("", 0, 64)] Texture2DArray m_TextureArray128R;
@@ -86,6 +82,8 @@ namespace URP_Extension.Features.Utility
 
         public BlueNoiseSystem()
         {
+            m_Textures128R = Resources.LoadAll<Texture2D>("Textures/STBN/vec1");
+            m_Textures128RG = Resources.LoadAll<Texture2D>("Textures/STBN/vec2");
 
             InitTextures(128, TextureFormat.R16, m_Textures128R, out m_TextureArray128R, out m_TextureHandle128R);
             InitTextures(128, TextureFormat.RG32, m_Textures128RG, out m_TextureArray128RG, out m_TextureHandle128RG);
@@ -154,7 +152,6 @@ namespace URP_Extension.Features.Utility
             for (int i = 0; i < len; i++)
             {
                 var noiseTex = sourceTextures[i];
-
                 // Fail safe; should never happen unless the resources asset is broken
                 if (noiseTex == null)
                 {
