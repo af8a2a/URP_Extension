@@ -45,10 +45,10 @@ Material:
     - _IGNORE_FORWARD_OBJECTS: 0
     - _MaxBounce: 4
     - _MaxBrightness: 10
-    - _MaxSample: 256
+    - _MaxSample: 64
     - _MaxSteps: 24
     - _RayCount: 1
-    - _Sample: 146
+    - _Sample: 2
     - _Seed: 0
     - _StepSize: 0.4
     - _TemporalIntensity: 0.936

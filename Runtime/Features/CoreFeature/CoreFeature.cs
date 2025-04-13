@@ -1,5 +1,4 @@
-﻿using UnityEngine;
-using UnityEngine.Rendering.Universal;
+﻿using UnityEngine.Rendering.Universal;
 using URP_Extension.Features.ColorPyramid;
 
 namespace URP_Extension.Features.HierarchyZGenerator
@@ -24,6 +23,7 @@ namespace URP_Extension.Features.HierarchyZGenerator
 
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
         {
+
             renderer.EnqueuePass(pass);
             renderer.EnqueuePass(colorPyramid);
         }
