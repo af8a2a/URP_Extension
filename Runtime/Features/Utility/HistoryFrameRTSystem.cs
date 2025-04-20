@@ -13,7 +13,7 @@ namespace URP_Extension.Features.Utility
     public enum HistoryFrameType
     {
         /// <summary>Color buffer mip chain.</summary>
-        ColorBufferMipChain,
+        TAAColorBuffer,
 
         ///// <summary>Exposure buffer.</summary>
         //Exposure,
@@ -91,8 +91,7 @@ namespace URP_Extension.Features.Utility
 
         /// <summary>Camera name.</summary>
         public string name { get; private set; } // Needs to be cached because camera.name generates GCAllocs
-
-
+        
         public RTHandleProperties rtHandleProperties
         {
             get { return m_BufferedRTHandleSystem.rtHandleProperties; }
@@ -111,7 +110,7 @@ namespace URP_Extension.Features.Utility
         /// <param name="camera"></param>
         /// <param name="xrMultipassId"></param>
         /// <returns></returns>
-        public static HistoryFrameRTSystem GetOrCreate(Camera camera, int xrMultipassId = 0)
+        public static HistoryFrameRTSystem GetOrCreate( Camera camera, int xrMultipassId = 0)
         {
             HistoryFrameRTSystem historyFrameRTSystem;
 
@@ -277,12 +276,13 @@ namespace URP_Extension.Features.Utility
         /// <param name="bufferCount">umber of buffer that should be allocated.</param>
         /// <returns>A new RTHandle.</returns>
         public RTHandle AllocHistoryFrameRT(int id, string cameraName,
-            Func<GraphicsFormat, string, int, RTHandleSystem, RTHandle> allocator, GraphicsFormat graphicsFormat,
+            Func< string, int, RTHandleSystem, RTHandle> allocator,
             int bufferCount)
         {
-            m_BufferedRTHandleSystem.AllocBuffer(id, (rts, i) => allocator(graphicsFormat, cameraName, i, rts),
+            m_BufferedRTHandleSystem.AllocBuffer(id, (rts, i) => allocator( cameraName, i, rts),
                 bufferCount);
             return m_BufferedRTHandleSystem.GetFrameRT(id, 0);
         }
     }
+    
 }

@@ -52,21 +52,21 @@ namespace URP_Extension.Features.MipGenerator
             m_DepthPyramidDescriptor.useMipMap = false;
 
             // Check if format has changed since last time we generated mips
-            RenderingUtils.ReAllocateHandleIfNeeded(ref m_TempDownsamplePyramid,
-                Vector2.one * 0.5f,
-                m_DepthPyramidDescriptor,
-                name: "Temporary Downsampled Pyramid");
-
-            // m_TempDownsamplePyramid = RTHandles.Alloc(
+            // RenderingUtils.ReAllocateHandleIfNeeded(ref m_TempDownsamplePyramid,
             //     Vector2.one * 0.5f,
-            //     // dimension: source.dimension,
-            //     // filterMode: FilterMode.Bilinear,
-            //     colorFormat: destination.graphicsFormat,
-            //     enableRandomWrite: true,
-            //     useMipMap: false,
-            //     useDynamicScale: true,
-            //     name: "Temporary Downsampled Pyramid"
-            // );
+            //     m_DepthPyramidDescriptor,
+            //     name: "Temporary Downsampled Pyramid");
+
+            m_TempDownsamplePyramid = RTHandles.Alloc(
+                Vector2.one * 0.5f,
+                // dimension: source.dimension,
+                // filterMode: FilterMode.Bilinear,
+                colorFormat: destination.graphicsFormat,
+                enableRandomWrite: true,
+                useMipMap: false,
+                useDynamicScale: true,
+                name: "Temporary Downsampled Pyramid"
+            );
 
             cmd.SetRenderTarget(m_TempDownsamplePyramid);
             cmd.ClearRenderTarget(false, true, Color.black);
@@ -173,16 +173,16 @@ namespace URP_Extension.Features.MipGenerator
                 name: "Temporary Downsampled Pyramid");
 
             // // Check if format has changed since last time we generated mips
-            // m_TempDownsamplePyramid = RTHandles.Alloc(
-            //     Vector2.one * 0.5f,
-            //     dimension: source.dimension,
-            //     filterMode: FilterMode.Bilinear,
-            //     colorFormat: destination.graphicsFormat,
-            //     enableRandomWrite: true,
-            //     useMipMap: false,
-            //     useDynamicScale: true,
-            //     name: "Temporary Downsampled Pyramid"
-            // );
+            m_TempDownsamplePyramid = RTHandles.Alloc(
+                Vector2.one * 0.5f,
+                dimension: source.dimension,
+                filterMode: FilterMode.Bilinear,
+                colorFormat: destination.graphicsFormat,
+                enableRandomWrite: true,
+                useMipMap: false,
+                useDynamicScale: true,
+                name: "Temporary Downsampled Pyramid"
+            );
 
             cmd.SetRenderTarget(m_TempDownsamplePyramid);
             cmd.ClearRenderTarget(false, true, Color.black);

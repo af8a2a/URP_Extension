@@ -1,155 +1,153 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
-using UnityEngine.Rendering.Universal;
+using UnityEngine.Rendering.RenderGraphModule;
+using URP_Extension.Features.Utility;
 
 namespace Features.Filter.TemporalDenoiser
 {
-    public class TemporalDenoiser : IDisposable
+    public class TemporalDenoiser
     {
-        bool m_HistoryReady = false;
-        private RTHandle input;
-        private float feedback = 0.7f;
-        RTHandle[] historyBuffer;
+        ComputeShader TemporalDenoiserCS;
+        int TemporalDenoiserKernel;
 
-        Material TemporalDenoiserMaterial;
-        static int indexWrite = 0;
 
-        Matrix4x4 previewView;
-        Matrix4x4 previewProj;
-        Dictionary<Camera, TAAData> m_TAADatas=new ();
+        private Material _material;
 
-        internal static class ShaderKeywordStrings
-        {
-            internal static readonly string HighTAAQuality = "_HIGH_TAA";
-            internal static readonly string MiddleTAAQuality = "_MIDDLE_TAA";
-            internal static readonly string LOWTAAQuality = "_LOW_TAA";
-        }
-
-        internal static class ShaderConstants
-        {
-            public static readonly int _TAA_Params = Shader.PropertyToID("_TAA_Params");
-            public static readonly int _TAA_pre_texture = Shader.PropertyToID("_TAA_Pretexture");
-            public static readonly int _TAA_pre_vp = Shader.PropertyToID("_TAA_Pretexture");
-            public static readonly int _TAA_PrevViewProjM = Shader.PropertyToID("_PrevViewProjM_TAA");
-            public static readonly int _TAA_CurInvView = Shader.PropertyToID("_I_V_Current_jittered");
-            public static readonly int _TAA_CurInvProj = Shader.PropertyToID("_I_P_Current_jittered");
-        }
+        private Material TemporalDenoiserMaterial =>
+            _material ??= new Material(Shader.Find("PostProcessing/TemporalFilter"));
 
         public TemporalDenoiser()
         {
-            TemporalDenoiserMaterial = new Material(Shader.Find("PostProcessing/TemporalFilter"));
+            TemporalDenoiserCS = Resources.Load<ComputeShader>("TemporalDenoise");
+            TemporalDenoiserKernel = TemporalDenoiserCS.FindKernel("TemporalDenoise");
         }
 
-        public void Setup(CommandBuffer cmd, ref RenderingData renderingData)
-        {
-            var camera = renderingData.cameraData.camera;
-            TAAData TaaData;
-            if (!m_TAADatas.TryGetValue(camera, out TaaData))
-            {
-                TaaData = new TAAData();
-                m_TAADatas.Add(camera, TaaData);
-            }
-        
-            var stack = VolumeManager.instance.stack;
-            var denoiserSetting = stack.GetComponent<TemporalDenoiserSetting>();
-            if (denoiserSetting.IsActive())
-            {
-                UpdateTAAData(renderingData, TaaData, denoiserSetting);
-                cmd.SetViewProjectionMatrices(renderingData.cameraData.camera.worldToCameraMatrix,
-                    TaaData.projOverride);
-            }
-            else
-            {
-                m_TAADatas.Remove(camera);
-            }
-        }
+        #region CS
 
-        void UpdateTAAData(RenderingData renderingData, TAAData TaaData, TemporalDenoiserSetting Taa)
+        public class TemporalAntiAliasingCSData
         {
-            Camera camera = renderingData.cameraData.camera;
-            Vector2 additionalSample = Utils.GenerateRandomOffset() * Taa.spread.value;
-            TaaData.sampleOffset = additionalSample;
-            TaaData.porjPreview = previewProj;
-            TaaData.viewPreview = previewView;
-            TaaData.projOverride = camera.orthographic
-                ? Utils.GetJitteredOrthographicProjectionMatrix(camera, TaaData.sampleOffset)
-                : Utils.GetJitteredPerspectiveProjectionMatrix(camera, TaaData.sampleOffset);
-            TaaData.sampleOffset = new Vector2(TaaData.sampleOffset.x / camera.scaledPixelWidth,
-                TaaData.sampleOffset.y / camera.scaledPixelHeight);
-            previewView = camera.worldToCameraMatrix;
-            previewProj = camera.projectionMatrix;
+            public ComputeShader TemporalAntiAliasingShader;
+            public int TemporalAntiAliasingKernel;
+            public Vector2 Resolution;
+            public TextureHandle motionTexture;
+            public TextureHandle depthTexture;
+            public TextureHandle currentHistory;
+            public TextureHandle inputTexture;
+            public TextureHandle denoiseOutput;
         }
 
 
-        public void DoTemporalAntiAliasing(CameraData cameraData, CommandBuffer cmd, RTHandle rtHandle)
+        public TextureHandle DoColorTemporalDenoiseCS(RenderGraph renderGraph,
+            Camera camera,
+            TextureHandle motionVectors,
+            TextureHandle depthTexture,
+            TextureHandle inputTexture,
+            TextureHandle currentHistory,
+            TextureHandle outputHistory)
         {
-            var camera = cameraData.camera;
-            var stack = VolumeManager.instance.stack;
-            var denoiserSetting = stack.GetComponent<TemporalDenoiserSetting>();
+            using var builder =
+                renderGraph.AddComputePass<TemporalAntiAliasingCSData>("Temporal Denoise CS", out var passData);
+            passData.Resolution = new Vector2(camera.pixelWidth, camera.pixelHeight);
 
-            // Never draw in Preview
-            if (camera.cameraType == CameraType.Preview)
-                return;
-            var descriptor = new RenderTextureDescriptor(camera.scaledPixelWidth, camera.scaledPixelHeight,
-                RenderTextureFormat.DefaultHDR, 16);
-            EnsureArray(ref historyBuffer, 2);
-            PrepareRenderTarget(ref historyBuffer[0], descriptor.width, descriptor.height, descriptor.colorFormat,
-                FilterMode.Bilinear);
-            PrepareRenderTarget(ref historyBuffer[1], descriptor.width, descriptor.height, descriptor.colorFormat,
-                FilterMode.Bilinear);
+            passData.TemporalAntiAliasingShader = TemporalDenoiserCS;
+            passData.TemporalAntiAliasingKernel = TemporalDenoiserKernel;
+            passData.motionTexture = motionVectors;
+            passData.inputTexture = inputTexture;
+            passData.depthTexture = depthTexture;
+            passData.currentHistory = currentHistory;
+            passData.denoiseOutput = outputHistory;
+            //
+            builder.UseTexture(passData.motionTexture);
+            builder.UseTexture(passData.depthTexture);
+            builder.UseTexture(passData.currentHistory);
+            builder.UseTexture(passData.inputTexture, AccessFlags.ReadWrite);
+            builder.UseTexture(passData.denoiseOutput, AccessFlags.ReadWrite);
 
-            int indexRead = indexWrite;
-            indexWrite = (++indexWrite) % 2;
-            TAAData TaaData;
-            if (!m_TAADatas.TryGetValue(camera, out TaaData))
-            {
-                return;
-            }
+            builder.SetRenderFunc(
+                (TemporalAntiAliasingCSData data, ComputeGraphContext ctx) =>
+                {
+                    const int groupSizeX = 16;
+                    const int groupSizeY = 16;
+                    int threadGroupX = RenderingUtilsExt.DivRoundUp((int)data.Resolution.x, groupSizeX);
+                    int threadGroupY = RenderingUtilsExt.DivRoundUp((int)data.Resolution.y, groupSizeY);
+                    var cmd = ctx.cmd;
+                    cmd.SetComputeTextureParam(data.TemporalAntiAliasingShader, data.TemporalAntiAliasingKernel,
+                        "ColorBuffer", data.inputTexture);
+                    cmd.SetComputeTextureParam(data.TemporalAntiAliasingShader, data.TemporalAntiAliasingKernel,
+                        "DepthBuffer", data.depthTexture);
+                    cmd.SetComputeTextureParam(data.TemporalAntiAliasingShader, data.TemporalAntiAliasingKernel,
+                        "VelocityBuffer", data.motionTexture);
+                    cmd.SetComputeTextureParam(data.TemporalAntiAliasingShader, data.TemporalAntiAliasingKernel,
+                        "HistoryBuffer", data.currentHistory);
+                    cmd.SetComputeTextureParam(data.TemporalAntiAliasingShader, data.TemporalAntiAliasingKernel,
+                        "OutputBuffer", data.denoiseOutput);
 
-            Matrix4x4 inv_p_jitterd = Matrix4x4.Inverse(TaaData.projOverride);
-            Matrix4x4 inv_v_jitterd = Matrix4x4.Inverse(camera.worldToCameraMatrix);
-            Matrix4x4 previous_vp = TaaData.porjPreview * TaaData.viewPreview;
-            TemporalDenoiserMaterial.SetMatrix(ShaderConstants._TAA_CurInvView, inv_v_jitterd);
-            TemporalDenoiserMaterial.SetMatrix(ShaderConstants._TAA_CurInvProj, inv_p_jitterd);
-            TemporalDenoiserMaterial.SetMatrix(ShaderConstants._TAA_PrevViewProjM, previous_vp);
-            TemporalDenoiserMaterial.SetVector(ShaderConstants._TAA_Params,
-                new Vector3(TaaData.sampleOffset.x, TaaData.sampleOffset.y, denoiserSetting.feedback.value));
-            TemporalDenoiserMaterial.SetTexture(ShaderConstants._TAA_pre_texture, historyBuffer[indexRead]);
-            CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.HighTAAQuality,
-                denoiserSetting.quality.value == MotionBlurQuality.High);
-            CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.MiddleTAAQuality,
-                denoiserSetting.quality.value == MotionBlurQuality.Medium);
-            CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.LOWTAAQuality, denoiserSetting.quality.value == MotionBlurQuality.Low);
-            cmd.Blit(rtHandle, historyBuffer[indexWrite], TemporalDenoiserMaterial);
-            cmd.Blit(historyBuffer[indexWrite], rtHandle);
+                    cmd.SetComputeVectorParam(data.TemporalAntiAliasingShader, "TAA_BlendParameter",
+                        new Vector4(0.97f, 0.9f, 6000, 1));
+                    cmd.SetComputeVectorParam(data.TemporalAntiAliasingShader, "TAAJitter",
+                        Utils.GenerateRandomOffset() / data.Resolution);
+
+
+                    cmd.DispatchCompute(data.TemporalAntiAliasingShader, data.TemporalAntiAliasingKernel, threadGroupX,
+                        threadGroupY, 1);
+                });
+
+
+            return passData.denoiseOutput;
         }
 
-        void EnsureArray<T>(ref T[] array, int size, T initialValue = default(T))
+        #endregion
+
+
+        public class TemporalAntiAliasingPSData
         {
-            if (array == null || array.Length != size)
-            {
-                array = new T[size];
-                for (int i = 0; i != size; i++)
-                    array[i] = initialValue;
-            }
+            public Material TemporalAntiAliasingMaterial;
+            public Vector2 Resolution;
+            public TextureHandle motionTexture;
+            public TextureHandle depthTexture;
+            public TextureHandle currentHistory;
+            public TextureHandle inputTexture;
+            public TextureHandle denoiseOutput;
         }
 
-        bool PrepareRenderTarget(ref RTHandle rt, int width, int height, RenderTextureFormat format,
-            FilterMode filterMode, int depthBits = 0, int antiAliasing = 1)
+        //todo
+        //to be finished
+        public TextureHandle DoColorTemporalDenoisePS(RenderGraph renderGraph,
+            Camera camera,
+            TextureHandle motionVectors,
+            TextureHandle depthTexture,
+            TextureHandle inputTexture,
+            TextureHandle currentHistory,
+            TextureHandle outputHistory)
         {
-            var desc = new RenderTextureDescriptor(width, height, format, depthBits);
-            RenderingUtils.ReAllocateIfNeeded(ref rt, desc, filterMode, TextureWrapMode.Clamp);
-            return true; // new target
-        }
+            using var builder =
+                renderGraph.AddRasterRenderPass<TemporalAntiAliasingPSData>("Temporal Denoise PS", out var passData);
+            passData.Resolution = new Vector2(camera.pixelWidth, camera.pixelHeight);
 
+            passData.TemporalAntiAliasingMaterial = TemporalDenoiserMaterial;
+            passData.motionTexture = motionVectors;
+            passData.inputTexture = inputTexture;
+            passData.depthTexture = depthTexture;
+            passData.currentHistory = currentHistory;
+            passData.denoiseOutput = outputHistory;
 
-        public void Dispose()
-        {
-            historyBuffer?.ToList().ForEach(buffer => buffer?.Release());
+            
+            builder.UseTexture(passData.motionTexture);
+            builder.UseTexture(passData.depthTexture);
+            builder.UseTexture(passData.currentHistory);
+            builder.UseTexture(passData.inputTexture, AccessFlags.ReadWrite);
+            builder.UseTexture(passData.denoiseOutput, AccessFlags.ReadWrite);
+            
+            builder.SetRenderAttachment(passData.denoiseOutput, 0, AccessFlags.Write);
+            builder.SetRenderFunc(
+                (TemporalAntiAliasingPSData data, RasterGraphContext ctx) =>
+                {
+                    Blitter.BlitTexture(ctx.cmd, data.inputTexture, Vector2.one, data.TemporalAntiAliasingMaterial, 0);
+                });
+
+            return passData.denoiseOutput;
         }
     }
 }

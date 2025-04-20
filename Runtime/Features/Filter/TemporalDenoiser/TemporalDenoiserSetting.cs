@@ -5,21 +5,16 @@ using UnityEngine.Rendering.Universal;
 
 namespace Features.Filter.TemporalDenoiser
 {
-    public sealed class TemporalDenoiserSetting:VolumeComponent, IPostProcessComponent
+    public sealed class TemporalDenoiserSetting : VolumeComponent
     {
         [Tooltip("The quality of AntiAliasing")]
         public MotionBlurQualityParameter quality = new MotionBlurQualityParameter(MotionBlurQuality.Low);
 
-        [Tooltip("Sampling Distance")]
-        public ClampedFloatParameter spread = new ClampedFloatParameter(1.0f, 0f, 1f);
-        
-        [Tooltip("Feedback")]
-        public ClampedFloatParameter feedback = new ClampedFloatParameter(0.0f, 0f, 1f);
+        [Tooltip("Sampling Distance")] public ClampedFloatParameter spread = new ClampedFloatParameter(1.0f, 0f, 1f);
 
-        public bool IsActive() => feedback.value > 0.0f && feedback.overrideState == true;
+        [Tooltip("Feedback")] public ClampedFloatParameter feedback = new ClampedFloatParameter(0.0f, 0f, 1f);
 
-        public bool IsTileCompatible() => false;
+        public BoolParameter enabled = new BoolParameter(false);
+        public bool IsActive() => enabled.value;
     }
-
-    
 }
