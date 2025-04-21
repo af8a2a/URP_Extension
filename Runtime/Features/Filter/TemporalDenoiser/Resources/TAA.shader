@@ -73,8 +73,8 @@
 
             color_avg = (ctl + ctc + ctr + cml + cmc + cmr + cbl + cbc + cbr) / 9.0;
         #elif defined(_MIDDLE_TAA)
-            float2 ss_offset01 =  float2(-_BlitTexture_TexelSize.x, _MainTex_TexelSize.y);
-            float2 ss_offset11 =  float2(_BlitTexture_TexelSize.x, _MainTex_TexelSize.y);
+            float2 ss_offset01 =  float2(-_BlitTexture_TexelSize.x, _BlitTexture_TexelSize.y);
+            float2 ss_offset11 =  float2(_BlitTexture_TexelSize.x, _BlitTexture_TexelSize.y);
             float4 c00 = SAMPLE_TEXTURE2D(_BlitTexture,sampler_LinearClamp, uv - ss_offset11);
             float4 c10 = SAMPLE_TEXTURE2D(_BlitTexture,sampler_LinearClamp, uv - ss_offset01);
             float4 c01 = SAMPLE_TEXTURE2D(_BlitTexture,sampler_LinearClamp, uv + ss_offset01);
