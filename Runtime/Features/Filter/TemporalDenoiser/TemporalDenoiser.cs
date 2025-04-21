@@ -13,10 +13,6 @@ namespace Features.Filter.TemporalDenoiser
         int TemporalDenoiserKernel;
 
 
-        private Material _material;
-
-        private Material TemporalDenoiserMaterial =>
-            _material ??= new Material(Shader.Find("PostProcessing/TemporalFilter"));
 
         public TemporalDenoiser()
         {
@@ -105,55 +101,6 @@ namespace Features.Filter.TemporalDenoiser
         }
 
         #endregion
-
-
-        public class TemporalAntiAliasingPSData
-        {
-            public Material TemporalAntiAliasingMaterial;
-            public Vector2 Resolution;
-            public TextureHandle motionTexture;
-            public TextureHandle depthTexture;
-            public TextureHandle currentHistory;
-            public TextureHandle inputTexture;
-            public TextureHandle denoiseOutput;
-        }
-
-        //todo
-        //to be finished
-        public TextureHandle DoColorTemporalDenoisePS(RenderGraph renderGraph,
-            Camera camera,
-            TextureHandle motionVectors,
-            TextureHandle depthTexture,
-            TextureHandle inputTexture,
-            TextureHandle currentHistory,
-            TextureHandle outputHistory)
-        {
-            using var builder =
-                renderGraph.AddRasterRenderPass<TemporalAntiAliasingPSData>("Temporal Denoise PS", out var passData);
-            passData.Resolution = new Vector2(camera.pixelWidth, camera.pixelHeight);
-
-            passData.TemporalAntiAliasingMaterial = TemporalDenoiserMaterial;
-            passData.motionTexture = motionVectors;
-            passData.inputTexture = inputTexture;
-            passData.depthTexture = depthTexture;
-            passData.currentHistory = currentHistory;
-            passData.denoiseOutput = outputHistory;
-
-
-            builder.UseTexture(passData.motionTexture);
-            builder.UseTexture(passData.depthTexture);
-            builder.UseTexture(passData.currentHistory);
-            builder.UseTexture(passData.inputTexture, AccessFlags.ReadWrite);
-            builder.UseTexture(passData.denoiseOutput, AccessFlags.ReadWrite);
-
-            builder.SetRenderAttachment(passData.denoiseOutput, 0, AccessFlags.Write);
-            builder.SetRenderFunc(
-                (TemporalAntiAliasingPSData data, RasterGraphContext ctx) =>
-                {
-                    Blitter.BlitTexture(ctx.cmd, data.inputTexture, Vector2.one, data.TemporalAntiAliasingMaterial, 0);
-                });
-
-            return passData.denoiseOutput;
-        }
+        
     }
 }
