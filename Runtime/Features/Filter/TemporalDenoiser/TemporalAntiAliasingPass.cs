@@ -49,38 +49,49 @@ namespace Features.Filter.TemporalDenoiser
 
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
         {
-            var resourceData = frameData.Get<UniversalResourceData>();
-            var cameraData = frameData.Get<UniversalCameraData>();
-            var camera = cameraData.camera;
-            var colorTexture = resourceData.activeColorTexture;
-
-            var camHistoryRTSystem = HistoryFrameRTSystem.GetOrCreate(cameraData.camera);
-            if (camHistoryRTSystem == null)
+            var setting = VolumeManager.instance.stack.GetComponent<TemporalDenoiserSetting>();
+            if (setting == null || !setting.IsActive())
             {
                 return;
             }
 
-            int actualWidth = cameraData.cameraTargetDescriptor.width;
-            int actualHeight = cameraData.cameraTargetDescriptor.height;
 
-            if (camHistoryRTSystem.GetCurrentFrameRT(HistoryFrameType.TAAColorBuffer) == null)
+            var resourceData = frameData.Get<UniversalResourceData>();
+            var cameraData = frameData.Get<UniversalCameraData>();
+            var camera = cameraData.camera;
+            var colorTexture = resourceData.activeColorTexture;
+            if (cameraData.historyManager == null)
             {
-                var textureAllocator = new TAATextureAllocator(nameof(TemporalDenoiser),
-                    new Vector2Int(actualWidth, actualHeight), cameraData.cameraTargetDescriptor.graphicsFormat);
-
-                camHistoryRTSystem.ReleaseHistoryFrameRT(HistoryFrameType.TAAColorBuffer);
-                camHistoryRTSystem.AllocHistoryFrameRT((int)HistoryFrameType.TAAColorBuffer, cameraData.camera.name,
-                    textureAllocator.Allocator, 2);
+                return;
             }
 
-            var prevRT =
-                renderGraph.ImportTexture(camHistoryRTSystem.GetPreviousFrameRT(HistoryFrameType.TAAColorBuffer));
-            var currRT =
-                renderGraph.ImportTexture(camHistoryRTSystem.GetCurrentFrameRT(HistoryFrameType.TAAColorBuffer));
+            cameraData.historyManager.RequestAccess<TAAColorHistory>();
+            var history = cameraData.historyManager.GetHistoryForWrite<TAAColorHistory>();
+            if (history == null)
+            {
+                return;
+            }
+
+            var historyDesc = cameraData.cameraTargetDescriptor;
+            historyDesc.graphicsFormat = GraphicsFormat.R16G16B16A16_SFloat;
+            historyDesc.depthBufferBits = 0;
+            historyDesc.msaaSamples = 1;
+            historyDesc.enableRandomWrite = true;
+            // Call the Update method of the camera history type.
+            history.Update(ref historyDesc);
+
+
+            // var prevDepth= cameraData.historyManager.GetHistoryForRead<TAAColorHistory>()?.GetCurrentTexture();
+
+            var prevRT = renderGraph.ImportTexture(history.GetPreviousTexture());
+            var currRT = renderGraph.ImportTexture(history.GetCurrentTexture());
             var motionRT = resourceData.motionVectorColor;
             var depthRT = resourceData.cameraDepth;
-            resourceData.cameraColor =
-                denoiser.DoColorTemporalDenoiseCS(renderGraph, camera, motionRT, depthRT, colorTexture, prevRT, currRT);
+            // resourceData.cameraColor = denoiser.DoColorTemporalDenoiseCS(renderGraph, camera, motionRT, depthRT,
+            //     colorTexture, prevRT, currRT, setting);
+            resourceData.cameraColor = denoiser.DoColorTemporalDenoiseCS(renderGraph, camera, motionRT, depthRT,
+                colorTexture, prevRT, currRT, setting);
+
         }
     }
 }

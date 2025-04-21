@@ -6,7 +6,7 @@
 #pragma only_renderers d3d11 playstation xboxone xboxseries vulkan metal switch
 
 #pragma kernel TemporalDenoise
-
+#pragma multi_compile _ HDROutput
 
 #define RADIUS      1
 #define GROUP_SIZE  16
@@ -23,6 +23,10 @@ RWTexture2D<float4> OutputBuffer;
 
 float4 TAAJitter;
 float4 TAA_BlendParameter; // x: static, y: dynamic, z: motion amplification, w: temporalScale
+#define Static TAA_BlendParameter.x
+#define Dynamic TAA_BlendParameter.y
+#define Amplification TAA_BlendParameter.z
+#define TemporalScale TAA_BlendParameter.w
 
 
 static const half TONEMAP_EPSILON = 1.0f / 65530.0f;
@@ -96,6 +100,113 @@ float3 SampleHistoryCatmullRom(in float2 uv, in float2 texelSize)
 }
 
 
+
+#define BICUBIC_CATMULL_ROM_SAMPLES 5
+
+struct FCatmullRomSamples
+{
+    // Constant number of samples (BICUBIC_CATMULL_ROM_SAMPLES)
+    uint Count;
+
+    // Constant sign of the UV direction from master UV sampling location.
+    int2 UVDir[BICUBIC_CATMULL_ROM_SAMPLES];
+
+    // Bilinear sampling UV coordinates of the samples
+    float2 UV[BICUBIC_CATMULL_ROM_SAMPLES];
+
+    // Weights of the samples
+    float Weight[BICUBIC_CATMULL_ROM_SAMPLES];
+
+    // Final multiplier (it is faster to multiply 3 RGB values than reweights the 5 weights)
+    float FinalMultiplier;
+};
+
+
+void Bicubic2DCatmullRom(in float2 UV, in float2 Size, in float2 InvSize, out float2 Sample[3], out float2 Weight[3])
+{
+    UV *= Size;
+
+    float2 tc = floor(UV - 0.5) + 0.5;
+    float2 f = UV - tc;
+    float2 f2 = f * f;
+    float2 f3 = f2 * f;
+
+    float2 w0 = f2 - 0.5 * (f3 + f);
+    float2 w1 = 1.5 * f3 - 2.5 * f2 + 1;
+    float2 w3 = 0.5 * (f3 - f2);
+    float2 w2 = 1 - w0 - w1 - w3;
+
+    Weight[0] = w0;
+    Weight[1] = w1 + w2;
+    Weight[2] = w3;
+
+    Sample[0] = tc - 1;
+    Sample[1] = tc + w2 / Weight[1];
+    Sample[2] = tc + 2;
+
+    Sample[0] *= InvSize;
+    Sample[1] *= InvSize;
+    Sample[2] *= InvSize;
+}
+
+FCatmullRomSamples GetBicubic2DCatmullRomSamples(float2 UV, float2 Size, in float2 InvSize)
+{
+    FCatmullRomSamples Samples;
+    Samples.Count = BICUBIC_CATMULL_ROM_SAMPLES;
+
+    float2 Weight[3];
+    float2 Sample[3];
+    Bicubic2DCatmullRom(UV, Size, InvSize, Sample, Weight);
+
+    // Optimized by removing corner samples
+    Samples.UV[0] = float2(Sample[1].x, Sample[0].y);
+    Samples.UV[1] = float2(Sample[0].x, Sample[1].y);
+    Samples.UV[2] = float2(Sample[1].x, Sample[1].y);
+    Samples.UV[3] = float2(Sample[2].x, Sample[1].y);
+    Samples.UV[4] = float2(Sample[1].x, Sample[2].y);
+
+    Samples.Weight[0] = Weight[1].x * Weight[0].y;
+    Samples.Weight[1] = Weight[0].x * Weight[1].y;
+    Samples.Weight[2] = Weight[1].x * Weight[1].y;
+    Samples.Weight[3] = Weight[2].x * Weight[1].y;
+    Samples.Weight[4] = Weight[1].x * Weight[2].y;
+
+    Samples.UVDir[0] = int2(0, -1);
+    Samples.UVDir[1] = int2(-1, 0);
+    Samples.UVDir[2] = int2(0, 0);
+    Samples.UVDir[3] = int2(1, 0);
+    Samples.UVDir[4] = int2(0, 1);
+
+    // Reweight after removing the corners
+    float CornerWeights;
+    CornerWeights = Samples.Weight[0];
+    CornerWeights += Samples.Weight[1];
+    CornerWeights += Samples.Weight[2];
+    CornerWeights += Samples.Weight[3];
+    CornerWeights += Samples.Weight[4];
+    Samples.FinalMultiplier = 1 / CornerWeights;
+
+    return Samples;
+}
+
+float4 Texture2DSampleBicubic(Texture2D Tex, SamplerState Sampler, float2 UV, float2 Size, in float2 InvSize)
+{
+    FCatmullRomSamples Samples = GetBicubic2DCatmullRomSamples(UV, Size, InvSize);
+
+    float4 OutColor = 0;
+    
+    [unroll]
+    for (uint i = 0; i < Samples.Count; i++)
+    {
+        OutColor += Tex.SampleLevel(Sampler, Samples.UV[i], 0) * Samples.Weight[i];
+    }
+    OutColor *= Samples.FinalMultiplier;
+
+    return OutColor;
+}
+
+
+
 float3 ClipAABB(float3 color, float3 aabbMin, float3 aabbMax)
 {
     #if 0
@@ -164,7 +275,6 @@ float2 GetClosestFragment(float2 uv, in float2 texelSize, float currDepth)
 void TemporalDenoise(uint3 id : SV_DispatchThreadID)
 {
     float4 TAA_Resolution;
-
     ColorBuffer.GetDimensions(TAA_Resolution.x, TAA_Resolution.y);
     TAA_Resolution.zw = rcp(TAA_Resolution.xy);
     float2 screenUV = (id.xy + 0.5) * TAA_Resolution.zw;
@@ -174,6 +284,7 @@ void TemporalDenoise(uint3 id : SV_DispatchThreadID)
                                                  GetClosestFragment(screenUV, currDepth, TAA_Resolution.zw), 0).xy;
     //float lastDepth = SRV_HistoryDepthTexture.SampleLevel(Global_point_clamp_sampler, screenUV - velocity, 0).r;
     float3 lastColor = SampleHistoryCatmullRom(screenUV - velocity, TAA_Resolution.zw).rgb;
+    lastColor =Texture2DSampleBicubic(HistoryBuffer, sampler_LinearClamp, screenUV - velocity, TAA_Resolution.xy, TAA_Resolution.zw).rgb;
     lastColor = RGBToYCoCg(Tonemap(lastColor));
 
     float3 sampleColors[9];
@@ -216,8 +327,8 @@ void TemporalDenoise(uint3 id : SV_DispatchThreadID)
     float3 stddev = sqrt((m2 / 9) - pow(mean, 2));
 
     //TAA_BlendParameter.w *= (((currDepth - lastDepth) * 10) > 0.001) ? 0 : 1;
-    float3 minColor = mean - TAA_BlendParameter.w * stddev;
-    float3 maxColor = mean + TAA_BlendParameter.w * stddev;
+    float3 minColor = mean - TemporalScale * stddev;
+    float3 maxColor = mean + TemporalScale * stddev;
 
     minColor = min(minColor, totalColor);
     maxColor = max(maxColor, totalColor);
@@ -230,8 +341,14 @@ void TemporalDenoise(uint3 id : SV_DispatchThreadID)
 
     lastColor = ClipAABB(lastColor, minColor, maxColor);
 
-    float weight = clamp(lerp(TAA_BlendParameter.x, TAA_BlendParameter.y, length(velocity) * TAA_BlendParameter.z),
-                         TAA_BlendParameter.y, TAA_BlendParameter.x);
+    float weight = clamp(lerp(Static, Dynamic, length(velocity) * Amplification),
+                         Dynamic, TemporalScale);
+
+    #if defined(HDROutput)
     OutputBuffer[id.xy] = float4(clamp(InverseTonemap(YCoCgToRGB(lerp(totalColor, lastColor, weight))), 0.0,
                                        65472), 1.0);
+    #else
+    OutputBuffer[id.xy] = LinearToSRGB(float4(clamp(InverseTonemap(YCoCgToRGB(lerp(totalColor, lastColor, weight))), 0.0,
+                                       65472), 1.0));
+    #endif
 }

@@ -7,7 +7,7 @@ using URP_Extension.Features.Utility;
 
 namespace Features.Filter.TemporalDenoiser
 {
-    public class TemporalDenoiser
+    public partial class TemporalDenoiser
     {
         ComputeShader TemporalDenoiserCS;
         int TemporalDenoiserKernel;
@@ -44,21 +44,23 @@ namespace Features.Filter.TemporalDenoiser
             TextureHandle motionVectors,
             TextureHandle depthTexture,
             TextureHandle inputTexture,
-            TextureHandle currentHistory,
-            TextureHandle outputHistory)
+            TextureHandle prevHistory,
+            TextureHandle currHistory,
+            TemporalDenoiserSetting setting
+        )
         {
             using var builder =
                 renderGraph.AddComputePass<TemporalAntiAliasingCSData>("Temporal Denoise CS", out var passData);
             passData.Resolution = new Vector2(camera.pixelWidth, camera.pixelHeight);
-
             passData.TemporalAntiAliasingShader = TemporalDenoiserCS;
             passData.TemporalAntiAliasingKernel = TemporalDenoiserKernel;
             passData.motionTexture = motionVectors;
             passData.inputTexture = inputTexture;
             passData.depthTexture = depthTexture;
-            passData.currentHistory = currentHistory;
-            passData.denoiseOutput = outputHistory;
+            passData.currentHistory = prevHistory;
+            passData.denoiseOutput = currHistory;
             //
+            builder.AllowGlobalStateModification(true);
             builder.UseTexture(passData.motionTexture);
             builder.UseTexture(passData.depthTexture);
             builder.UseTexture(passData.currentHistory);
@@ -89,9 +91,13 @@ namespace Features.Filter.TemporalDenoiser
                     cmd.SetComputeVectorParam(data.TemporalAntiAliasingShader, "TAAJitter",
                         Utils.GenerateRandomOffset() / data.Resolution);
 
+                    cmd.SetKeyword(data.TemporalAntiAliasingShader,
+                        new LocalKeyword(data.TemporalAntiAliasingShader, "HDROutput"), camera.allowHDR);
+
 
                     cmd.DispatchCompute(data.TemporalAntiAliasingShader, data.TemporalAntiAliasingKernel, threadGroupX,
                         threadGroupY, 1);
+                    
                 });
 
 
@@ -133,13 +139,13 @@ namespace Features.Filter.TemporalDenoiser
             passData.currentHistory = currentHistory;
             passData.denoiseOutput = outputHistory;
 
-            
+
             builder.UseTexture(passData.motionTexture);
             builder.UseTexture(passData.depthTexture);
             builder.UseTexture(passData.currentHistory);
             builder.UseTexture(passData.inputTexture, AccessFlags.ReadWrite);
             builder.UseTexture(passData.denoiseOutput, AccessFlags.ReadWrite);
-            
+
             builder.SetRenderAttachment(passData.denoiseOutput, 0, AccessFlags.Write);
             builder.SetRenderFunc(
                 (TemporalAntiAliasingPSData data, RasterGraphContext ctx) =>

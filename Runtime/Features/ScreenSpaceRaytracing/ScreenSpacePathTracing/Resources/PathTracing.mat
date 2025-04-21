@@ -13,7 +13,8 @@ Material:
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
   - _BACKFACE_TEXTURES
-  - _METHOD_HASHED_RANDOM
+  - _FP_REFL_PROBE_ATLAS
+  - _METHOD_BLUE_NOISE
   m_InvalidKeywords:
   - _DITHERING_ON
   m_LightmapFlags: 4
@@ -48,10 +49,10 @@ Material:
     - _MaxSample: 256
     - _MaxSteps: 24
     - _RayCount: 1
-    - _Sample: 4
+    - _Sample: 256
     - _Seed: 0
     - _StepSize: 0.4
-    - _TemporalIntensity: 0.936
+    - _TemporalIntensity: 0.85338
     m_Colors: []
   m_BuildTextureStacks: []
   m_AllowLocking: 1
