@@ -1,15 +1,14 @@
 ﻿using System;
-using Features.Filter.TemporalDenoiser;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 
-namespace Features.AO.GTAO
+namespace Features.AmbientOcclusion.GTAOMobile
 {
     // The SSAO Pass
-    public class GroundTruthAmbientOcclusionPass : ScriptableRenderPass
+    public class MobileGroundTruthAmbientOcclusionPass : ScriptableRenderPass
     {
         // Properties
         //private bool isRendererDeferred => m_Renderer != null && m_Renderer is UniversalRenderer && ((UniversalRenderer)m_Renderer).renderingMode == RenderingMode.Deferred;
@@ -25,16 +24,9 @@ namespace Features.AO.GTAO
         private Vector4[] m_CameraYExtent = new Vector4[2];
         private Vector4[] m_CameraZExtent = new Vector4[2];
         private Matrix4x4[] m_CameraViewProjections = new Matrix4x4[2];
-        private ProfilingSampler m_ProfilingSampler = new ProfilingSampler("GTAO");
+        private ProfilingSampler m_ProfilingSampler = new ProfilingSampler("GTAOMobile");
 
-        private RTHandle m_AOPassRT;
-        private RTHandle m_BlurHorizonRT;
-        private RTHandle m_BlurVerticalRT;
-        private RTHandle m_interleaved;
-
-        private RTHandle m_FinalRT;
-        private ScreenSpaceAmbientOcclusionSettings m_CurrentSettings;
-        private TemporalDenoiser _denoiser = null;
+        private MobileGroundTruthAmbientOcclusion m_CurrentSettings;
 
         // Constants
         private const string k_SSAOTextureName = "_ScreenSpaceOcclusionTexture";
@@ -70,10 +62,8 @@ namespace Features.AO.GTAO
         }
 
 
-        internal GroundTruthAmbientOcclusionPass()
+        internal MobileGroundTruthAmbientOcclusionPass()
         {
-            m_CurrentSettings = new ScreenSpaceAmbientOcclusionSettings();
-            _denoiser = new TemporalDenoiser();
         }
 
         // Structs
@@ -87,25 +77,25 @@ namespace Features.AO.GTAO
             internal bool sourceDepthLow;
             internal Vector4 ssaoParams;
 
-            internal SSAOMaterialParams(ref ScreenSpaceAmbientOcclusionSettings settings, bool isOrthographic)
+            internal SSAOMaterialParams(ref MobileGroundTruthAmbientOcclusion settings, bool isOrthographic)
             {
                 bool isUsingDepthNormals =
-                    settings.Source == ScreenSpaceAmbientOcclusionSettings.DepthSource.DepthNormals;
+                    settings.Source == DepthSource.DepthNormals;
                 orthographicCamera = isOrthographic;
-                sampleCount = settings.SampleCount;
+                sampleCount = settings.SampleCount.value;
                 sourceDepthNormals =
-                    settings.Source == ScreenSpaceAmbientOcclusionSettings.DepthSource.DepthNormals;
+                    settings.Source == DepthSource.DepthNormals;
                 sourceDepthHigh = !isUsingDepthNormals &&
-                                  settings.NormalSamples == ScreenSpaceAmbientOcclusionSettings.NormalQuality.High;
-                sourceDepthMedium = !isUsingDepthNormals && settings.NormalSamples ==
-                    ScreenSpaceAmbientOcclusionSettings.NormalQuality.Medium;
+                                  settings.NormalSamples.value == NormalQuality.High;
+                sourceDepthMedium = !isUsingDepthNormals && settings.NormalSamples.value ==
+                    NormalQuality.Medium;
                 sourceDepthLow = !isUsingDepthNormals &&
-                                 settings.NormalSamples == ScreenSpaceAmbientOcclusionSettings.NormalQuality.Low;
+                                 settings.NormalSamples == NormalQuality.Low;
                 ssaoParams = new Vector4(
-                    settings.Intensity, // Intensity
-                    settings.Radius, // Radius
-                    1.0f / (settings.Downsample ? 2 : 1), // Downsampling
-                    settings.SampleCount // Sample count
+                    settings.Intensity.value, // Intensity
+                    settings.Radius.value, // Radius
+                    1.0f / (settings.Downsample.value ? 2 : 1), // Downsampling
+                    settings.SampleCount.value // Sample count
                 );
             }
 
@@ -124,37 +114,37 @@ namespace Features.AO.GTAO
 
         private SSAOMaterialParams m_SSAOParamsPrev = new SSAOMaterialParams();
 
-        internal bool Setup(ScreenSpaceAmbientOcclusionSettings featureSettings, Material material)
+        internal bool Setup(MobileGroundTruthAmbientOcclusion featureSettings, Material material)
         {
             m_Material = material;
             m_CurrentSettings = featureSettings;
 
-            ScreenSpaceAmbientOcclusionSettings.DepthSource source;
+            DepthSource source;
             if (isRendererDeferred)
             {
-                renderPassEvent = featureSettings.AfterOpaque
+                renderPassEvent = featureSettings.AfterOpaque.value
                     ? RenderPassEvent.AfterRenderingOpaques
                     : RenderPassEvent.AfterRenderingGbuffer;
-                source = ScreenSpaceAmbientOcclusionSettings.DepthSource.DepthNormals;
+                source = DepthSource.DepthNormals;
             }
             else
             {
                 // Rendering after PrePasses is usually correct except when depth priming is in play:
                 // then we rely on a depth resolve taking place after the PrePasses in order to have it ready for SSAO.
                 // Hence we set the event to RenderPassEvent.AfterRenderingPrePasses + 1 at the earliest.
-                renderPassEvent = featureSettings.AfterOpaque
+                renderPassEvent = featureSettings.AfterOpaque.value
                     ? RenderPassEvent.AfterRenderingOpaques
                     : RenderPassEvent.AfterRenderingPrePasses + 1;
-                source = m_CurrentSettings.Source;
+                source = m_CurrentSettings.Source.value;
             }
 
 
             switch (source)
             {
-                case ScreenSpaceAmbientOcclusionSettings.DepthSource.Depth:
+                case DepthSource.Depth:
                     ConfigureInput(ScriptableRenderPassInput.Depth);
                     break;
-                case ScreenSpaceAmbientOcclusionSettings.DepthSource.DepthNormals:
+                case DepthSource.DepthNormals:
                     ConfigureInput(ScriptableRenderPassInput
                         .Normal); // need depthNormal prepass for forward-only geometry
                     break;
@@ -163,17 +153,17 @@ namespace Features.AO.GTAO
             }
 
             return m_Material != null
-                   && m_CurrentSettings.Intensity > 0.0f
-                   && m_CurrentSettings.Radius > 0.0f
-                   && m_CurrentSettings.SampleCount > 0;
+                   && m_CurrentSettings.Intensity.value > 0.0f
+                   && m_CurrentSettings.Radius.value > 0.0f
+                   && m_CurrentSettings.SampleCount.value > 0;
         }
 
 
         private void InitSSAOPassData(ref PassData data)
         {
             data.material = m_Material;
-            data.afterOpaque = m_CurrentSettings.AfterOpaque;
-            data.directLightingStrength = m_CurrentSettings.DirectLightingStrength;
+            data.afterOpaque = m_CurrentSettings.AfterOpaque.value;
+            data.directLightingStrength = m_CurrentSettings.DirectLightingStrength.value;
         }
 
         internal class PassData
@@ -194,7 +184,7 @@ namespace Features.AO.GTAO
             internal TextureHandle cameraNormalsTexture;
         }
 
-        private void SetupKeywordsAndParameters(ref ScreenSpaceAmbientOcclusionSettings settings,
+        private void SetupKeywordsAndParameters(ref MobileGroundTruthAmbientOcclusion settings,
             ref UniversalCameraData cameraData)
         {
 #if ENABLE_VR && ENABLE_XR_MODULE
@@ -245,15 +235,15 @@ namespace Features.AO.GTAO
                 return;
 
             m_SSAOParamsPrev = matParams;
-            CoreUtils.SetKeyword(m_Material, GroundTruthAmbientOcclusion.k_OrthographicCameraKeyword,
+            CoreUtils.SetKeyword(m_Material, MobileGroundTruthAmbientOcclusionFeature.k_OrthographicCameraKeyword,
                 matParams.orthographicCamera);
-            CoreUtils.SetKeyword(m_Material, GroundTruthAmbientOcclusion.k_SourceDepthNormalsKeyword,
+            CoreUtils.SetKeyword(m_Material, MobileGroundTruthAmbientOcclusionFeature.k_SourceDepthNormalsKeyword,
                 matParams.sourceDepthNormals);
-            CoreUtils.SetKeyword(m_Material, GroundTruthAmbientOcclusion.k_NormalReconstructionHighKeyword,
+            CoreUtils.SetKeyword(m_Material, MobileGroundTruthAmbientOcclusionFeature.k_NormalReconstructionHighKeyword,
                 matParams.sourceDepthHigh);
-            CoreUtils.SetKeyword(m_Material, GroundTruthAmbientOcclusion.k_NormalReconstructionMediumKeyword,
+            CoreUtils.SetKeyword(m_Material, MobileGroundTruthAmbientOcclusionFeature.k_NormalReconstructionMediumKeyword,
                 matParams.sourceDepthMedium);
-            CoreUtils.SetKeyword(m_Material, GroundTruthAmbientOcclusion.k_NormalReconstructionLowKeyword,
+            CoreUtils.SetKeyword(m_Material, MobileGroundTruthAmbientOcclusionFeature.k_NormalReconstructionLowKeyword,
                 matParams.sourceDepthLow);
             m_Material.SetVector(s_SSAOParamsID, matParams.ssaoParams);
         }
@@ -272,7 +262,7 @@ namespace Features.AO.GTAO
             finalTextureDescriptor.msaaSamples = 1;
 
             // Descriptor for the AO and Blur passes
-            int downsampleDivider = m_CurrentSettings.Downsample ? 2 : 1;
+            int downsampleDivider = m_CurrentSettings.Downsample.value ? 2 : 1;
             bool useRedComponentOnly = m_SupportsR8RenderTextureFormat;
 
             RenderTextureDescriptor aoBlurDescriptor = finalTextureDescriptor;
@@ -284,7 +274,7 @@ namespace Features.AO.GTAO
             // Handles
             aoTexture = UniversalRenderer.CreateRenderGraphTexture(renderGraph, aoBlurDescriptor,
                 "_SSAO_OcclusionTexture0", false, FilterMode.Bilinear);
-            finalTexture = m_CurrentSettings.AfterOpaque
+            finalTexture = m_CurrentSettings.AfterOpaque.value
                 ? resourceData.activeColorTexture
                 : UniversalRenderer.CreateRenderGraphTexture(renderGraph, finalTextureDescriptor, k_SSAOTextureName,
                     false, FilterMode.Bilinear);
@@ -292,7 +282,7 @@ namespace Features.AO.GTAO
             blurTexture = UniversalRenderer.CreateRenderGraphTexture(renderGraph, aoBlurDescriptor,
                 "_SSAO_OcclusionTexture1", false, FilterMode.Bilinear);
 
-            if (!m_CurrentSettings.AfterOpaque)
+            if (!m_CurrentSettings.AfterOpaque.value)
                 resourceData.ssaoTexture = finalTexture;
         }
 
@@ -332,7 +322,7 @@ namespace Features.AO.GTAO
                 builder.UseTexture(passData.blurTexture, AccessFlags.ReadWrite);
                 if (cameraDepthTexture.IsValid())
                     builder.UseTexture(cameraDepthTexture, AccessFlags.Read);
-                if (m_CurrentSettings.Source == ScreenSpaceAmbientOcclusionSettings.DepthSource.DepthNormals &&
+                if (m_CurrentSettings.Source == DepthSource.DepthNormals &&
                     cameraNormalsTexture.IsValid())
                 {
                     builder.UseTexture(cameraNormalsTexture, AccessFlags.Read);
@@ -399,7 +389,7 @@ namespace Features.AO.GTAO
                 throw new ArgumentNullException("cmd");
             }
 
-            if (!m_CurrentSettings.AfterOpaque)
+            if (!m_CurrentSettings.AfterOpaque.value)
             {
                 CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.ScreenSpaceOcclusion, false);
             }

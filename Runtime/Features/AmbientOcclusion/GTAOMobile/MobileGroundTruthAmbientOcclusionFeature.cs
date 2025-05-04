@@ -1,59 +1,27 @@
 ﻿using System;
-using Features.Filter.TemporalDenoiser;
-using Features.InterleavedTexture;
+using Features.AO.GTAO;
 using UnityEngine;
-using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
-using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
-using UnityEngine.Rendering.Universal.Internal;
 
 //reference by https://github.com/bladesero/GTAO_URP
-namespace Features.AO.GTAO
+namespace Features.AmbientOcclusion.GTAOMobile
 {
-    [Serializable]
-    internal class ScreenSpaceAmbientOcclusionSettings
-    {
-        // Parameters
-        [SerializeField] internal bool Downsample = false;
-        [SerializeField] internal bool AfterOpaque = false;
-        [SerializeField] internal DepthSource Source = DepthSource.DepthNormals;
-        [SerializeField] internal NormalQuality NormalSamples = NormalQuality.Medium;
-        [SerializeField] internal float Intensity = 3.0f;
-        [SerializeField] internal float DirectLightingStrength = 0.25f;
-        [SerializeField] internal float Radius = 0.035f;
-        [SerializeField] internal int SampleCount = 4;
-
-        // Enums
-        internal enum DepthSource
-        {
-            Depth = 0,
-            DepthNormals = 1
-        }
-
-        internal enum NormalQuality
-        {
-            Low,
-            Medium,
-            High
-        }
-    }
-
     [DisallowMultipleRendererFeature]
     [Tooltip(
         "The Ambient Occlusion effect darkens creases, holes, intersections and surfaces that are close to each other.")]
-    internal class GroundTruthAmbientOcclusion : ScriptableRendererFeature
+    internal class MobileGroundTruthAmbientOcclusionFeature : ScriptableRendererFeature
     {
         // Serialized Fields
         [SerializeField, HideInInspector] private Shader m_Shader = null;
 
-        [SerializeField]
-        private ScreenSpaceAmbientOcclusionSettings m_Settings = new ScreenSpaceAmbientOcclusionSettings();
+        // [SerializeField]
+        // private ScreenSpaceAmbientOcclusionSettings m_Settings = new ScreenSpaceAmbientOcclusionSettings();
 
         // Private Fields
         private Material m_Material;
 
-        private GroundTruthAmbientOcclusionPass m_SSAOPass = null;
+        private MobileGroundTruthAmbientOcclusionPass m_SSAOPass = null;
 
         // Constants
         internal const string k_ShaderName = "Hidden/Universal Render Pipeline/GroundTruthAmbientOcclusion";
@@ -64,13 +32,12 @@ namespace Features.AO.GTAO
         internal const string k_SourceDepthKeyword = "_SOURCE_DEPTH";
         internal const string k_SourceDepthNormalsKeyword = "_SOURCE_DEPTH_NORMALS";
 
-        internal bool afterOpaque => m_Settings.AfterOpaque;
 
         /// <inheritdoc/>
         public override void Create()
         {
             // Create the pass...
-            m_SSAOPass ??= new GroundTruthAmbientOcclusionPass();
+            m_SSAOPass ??= new MobileGroundTruthAmbientOcclusionPass();
 
             GetMaterial();
         }
@@ -89,7 +56,14 @@ namespace Features.AO.GTAO
                 return;
             }
 
-            bool shouldAdd = m_SSAOPass.Setup(m_Settings, m_Material);
+            var settings = VolumeManager.instance.stack.GetComponent<MobileGroundTruthAmbientOcclusion>();
+            if (!settings || !settings.IsActive())
+            {
+                return;
+            }
+
+            
+            bool shouldAdd = m_SSAOPass.Setup(settings, m_Material);
 
             if (shouldAdd)
             {
