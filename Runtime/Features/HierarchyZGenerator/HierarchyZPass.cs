@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Runtime.InteropServices.ComTypes;
+using Features.MipGenerator;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -83,7 +84,7 @@ namespace URP_Extension.Features.HierarchyZGenerator
             // Blitter.BlitCameraTexture(cmd, data.input, data.output);
             //note:D3D11 Not support ResourcesBarrier
 
-            data.hierarchyZData.MipCount = MipGenerator.MipGenerator.Instance.RenderDepthPyramid(cmd,
+            data.hierarchyZData.MipCount = MipGenerator.Instance.RenderDepthPyramid(cmd,
                 new Vector2Int(data.dimX,
                     data.dimY), data.input, data.output);
         }

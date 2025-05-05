@@ -3,7 +3,6 @@ using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
-using URP_Extension.Features.MipGenerator;
 using URP_Extension.Features.Utility;
 
 namespace Features.DepthOfField.DiaphragmDOF

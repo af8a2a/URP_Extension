@@ -1,4 +1,5 @@
 ﻿using Features.InterleavedTexture;
+using Features.MipGenerator;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
@@ -29,40 +30,43 @@ namespace URP_Extension.Features.Playground
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
         {
             var resourceData = frameData.Get<UniversalResourceData>();
-    
+
             var cameraColor = resourceData.activeColorTexture;
-            var desc = renderGraph.GetTextureDesc(resourceData.activeColorTexture);
-            desc.enableRandomWrite = true;
-            desc.dimension = TextureDimension.Tex2DArray;
-            desc.width /= 2;
-            desc.height /= 2;
-            desc.slices = 4;
-            desc.name = "Playground_0";
-            var output0 = renderGraph.CreateTexture(desc);
-            desc.width  *= 2;
-            desc.height *= 2;
+            resourceData.cameraColor = MipGenerator.Instance.SPDGenerateMip(renderGraph, cameraColor,4);
 
-            desc.dimension = TextureDimension.Tex2D;
-            desc.slices = 1;
 
-            desc.name = "Playground_1";
-
-            var output1 = renderGraph.CreateTexture(desc);
-
-            using (var builder = renderGraph.AddComputePass<PassData>("Playground", out var data))
-            {
-                builder.AllowPassCulling(false);
-                data.cameraTexture = cameraColor;
-                data.targetTexture = output0;
-                data.tempTexture = output1;
-                data.width = desc.width;
-                data.height = desc.height;
-                builder.UseTexture(data.cameraTexture, AccessFlags.ReadWrite);
-                builder.UseTexture(data.targetTexture, AccessFlags.ReadWrite);
-                builder.UseTexture(data.tempTexture, AccessFlags.ReadWrite);
-
-                builder.SetRenderFunc((PassData data, ComputeGraphContext cgContext) => ExecutePass(data, cgContext));
-            }
+            // var desc = renderGraph.GetTextureDesc(resourceData.activeColorTexture);
+            // desc.enableRandomWrite = true;
+            // desc.dimension = TextureDimension.Tex2DArray;
+            // desc.width /= 2;
+            // desc.height /= 2;
+            // desc.slices = 4;
+            // desc.name = "Playground_0";
+            // var output0 = renderGraph.CreateTexture(desc);
+            // desc.width  *= 2;
+            // desc.height *= 2;
+            //
+            // desc.dimension = TextureDimension.Tex2D;
+            // desc.slices = 1;
+            //
+            // desc.name = "Playground_1";
+            //
+            // var output1 = renderGraph.CreateTexture(desc);
+            //
+            // using (var builder = renderGraph.AddComputePass<PassData>("Playground", out var data))
+            // {
+            //     builder.AllowPassCulling(false);
+            //     data.cameraTexture = cameraColor;
+            //     data.targetTexture = output0;
+            //     data.tempTexture = output1;
+            //     data.width = desc.width;
+            //     data.height = desc.height;
+            //     builder.UseTexture(data.cameraTexture, AccessFlags.ReadWrite);
+            //     builder.UseTexture(data.targetTexture, AccessFlags.ReadWrite);
+            //     builder.UseTexture(data.tempTexture, AccessFlags.ReadWrite);
+            //
+            //     builder.SetRenderFunc((PassData data, ComputeGraphContext cgContext) => ExecutePass(data, cgContext));
+            // }
         }
 
         public void Setup()

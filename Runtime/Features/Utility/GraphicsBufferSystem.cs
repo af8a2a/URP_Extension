@@ -9,6 +9,7 @@ namespace URP_Extension.Features.Utility
 {
     public enum GraphicsBufferSystemBufferID
     {
+        SPD,
         //LightDataBuffer,
         //LightIndicesBuffer,
 

@@ -1,13 +1,12 @@
 ﻿using System;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 
-namespace URP_Extension.Features.MipGenerator
+namespace Features.MipGenerator
 {
     //copy and modifed from HDRP
-    public class MipGenerator
+    public partial class MipGenerator
     {
         RTHandle m_TempColorTargets;
         RTHandle m_TempDownsamplePyramid;
@@ -33,6 +32,21 @@ namespace URP_Extension.Features.MipGenerator
             m_PropertyBlock = new MaterialPropertyBlock();
             m_ColorPyramidDescriptor = new RenderTextureDescriptor();
             m_DepthPyramidDescriptor = new RenderTextureDescriptor();
+
+            #region GPUCopy
+
+            GPUCopyColor = Resources.Load<ComputeShader>("CopyColor");
+            GPUCopyColorKernelID = GPUCopyColor.FindKernel("KMain");
+
+            #endregion
+
+
+            #region SPD
+
+            spdCS = Resources.Load<ComputeShader>("SPDIntegration");
+            spdKernelID = spdCS.FindKernel("KMain");
+
+            #endregion
         }
 
         private static Lazy<MipGenerator> s_Instance = new Lazy<MipGenerator>(() => new MipGenerator());
@@ -160,8 +174,7 @@ namespace URP_Extension.Features.MipGenerator
             int srcMipWidth = size.x;
             int srcMipHeight = size.y;
 
-            
-            
+
             m_ColorPyramidDescriptor = destination.descriptor;
             m_ColorPyramidDescriptor.useDynamicScale = true;
             m_ColorPyramidDescriptor.useMipMap = false;
