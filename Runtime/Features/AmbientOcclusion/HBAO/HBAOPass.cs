@@ -227,6 +227,10 @@ namespace Features.AO.HBAO
                     return;
                 }
 
+                if (!cameraData.isGameCamera)
+                {
+                    return;
+                }
                 
                 // var normalViewTexture = builder.CreateTransientTexture(new TextureDesc(Vector2.one)
                 // {
