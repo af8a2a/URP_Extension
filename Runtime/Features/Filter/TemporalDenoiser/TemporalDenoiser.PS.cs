@@ -1,4 +1,5 @@
 ﻿using System;
+using Features.Utility;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
@@ -57,8 +58,8 @@ namespace Features.Filter.TemporalDenoiser
 
             var material = passData.TemporalAntiAliasingMaterial;
             material.SetMatrix("_I_P_Current_jittered",
-                Utils.GetJitteredPerspectiveProjectionMatrix(camera, Utils.GenerateRandomOffset()));
-            var offset = setting.spread.value * Utils.GenerateRandomOffset() / passData.Resolution;
+                TemporalUtils.GetJitteredPerspectiveProjectionMatrix(camera, TemporalUtils.GenerateRandomOffset()));
+            var offset = setting.spread.value * TemporalUtils.GenerateRandomOffset() / passData.Resolution;
             material.SetVector("_TAA_Params",
                 new Vector4(offset.x, offset.y, setting.feedback.value, 0));
 

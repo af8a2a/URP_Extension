@@ -1,8 +1,12 @@
-﻿using UnityEngine;
+﻿using System;
+using Features.Filter.TemporalDenoiser;
+using Unity.Mathematics;
+using UnityEngine;
+using Random = System.Random;
 
-namespace Features.Filter.TemporalDenoiser
+namespace Features.Utility
 {
-    public static class Utils
+    public static class TemporalUtils
     {
         const int k_SampleCount = 8;
 
@@ -13,15 +17,39 @@ namespace Features.Filter.TemporalDenoiser
             // The variance between 0 and the actual halton sequence values reveals noticeable instability
             // in Unity's shadow maps, so we avoid index 0.
             var offset = new Vector2(
-                    HaltonSeq.Get((sampleIndex & 1023) + 1, 2) - 0.5f,
-                    HaltonSeq.Get((sampleIndex & 1023) + 1, 3) - 0.5f
-                );
+                HaltonSeq.Get((sampleIndex & 1023) + 1, 2) - 0.5f,
+                HaltonSeq.Get((sampleIndex & 1023) + 1, 3) - 0.5f
+            );
 
             if (++sampleIndex >= k_SampleCount)
                 sampleIndex = 0;
 
             return offset;
         }
+
+
+        public static Vector4[] HBAOJitter()
+        {
+            var jitter = new Vector4[16];
+            var rand = new Random();
+            
+            float numDir = 8; // keep in sync to glsl
+            
+            for (int i = 0; i < 16; i++)
+            {
+                var rand1 =(float)rand.NextDouble() ;
+                var rand2 =(float)rand.NextDouble() ;
+                float angle = math.PI2 * rand1 / numDir;
+                jitter[i].x = math.cos(angle);
+                jitter[i].y = math.sin(angle);
+                jitter[i].z = rand2;
+                jitter[i].w = 0;
+            }
+
+            return jitter;
+        }
+
+
         /// <summary>
         /// Gets a jittered orthographic projection matrix for a given camera.
         /// </summary>
@@ -68,9 +96,5 @@ namespace Features.Filter.TemporalDenoiser
 
             return matrix;
         }
-
-
     }
-
-
 }

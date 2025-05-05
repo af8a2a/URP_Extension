@@ -1,4 +1,5 @@
 ﻿using System;
+using Features.Utility;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -85,7 +86,7 @@ namespace Features.Filter.TemporalDenoiser
                     cmd.SetComputeVectorParam(data.TemporalAntiAliasingShader, "TAA_BlendParameter",
                         new Vector4(0.97f, 0.9f, 6000, 1));
                     cmd.SetComputeVectorParam(data.TemporalAntiAliasingShader, "TAAJitter",
-                        Utils.GenerateRandomOffset() / data.Resolution);
+                        TemporalUtils.GenerateRandomOffset() / data.Resolution);
 
                     cmd.SetKeyword(data.TemporalAntiAliasingShader,
                         new LocalKeyword(data.TemporalAntiAliasingShader, "HDROutput"), camera.allowHDR);

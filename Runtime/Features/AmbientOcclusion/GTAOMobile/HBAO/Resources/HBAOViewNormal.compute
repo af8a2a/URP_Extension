@@ -1,0 +1,22 @@
+﻿#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+
+#pragma kernel KMain
+
+Texture2D<float4> NormalInput;
+RWTexture2D<float4> NormalView;
+
+
+inline float3 GetNormal(int2 coord)
+{
+    float3 norm = NormalInput[coord];
+    float3 view_Normal = normalize(mul((float3x3)unity_WorldToCamera, norm));
+    return float3(view_Normal.xy, view_Normal.z);
+}
+
+
+[numthreads(8, 8, 1)]
+void KMain(uint3 tid : SV_DispatchThreadID)
+{
+    NormalView[tid.xy] = float4(GetNormal(tid.xy), 0);
+}
