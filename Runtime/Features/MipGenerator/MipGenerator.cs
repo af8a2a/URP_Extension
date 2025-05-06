@@ -43,8 +43,9 @@ namespace Features.MipGenerator
 
             #region SPD
 
+            spdCompatibleCS = Resources.Load<ComputeShader>("SPDCompatible");
             spdCS = Resources.Load<ComputeShader>("SPDIntegration");
-            spdKernelID = spdCS.FindKernel("KMain");
+            spdKernelID = spdCompatibleCS.FindKernel("KMain"); //default 0
 
             #endregion
         }

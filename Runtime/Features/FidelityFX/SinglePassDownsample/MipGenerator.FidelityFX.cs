@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -13,7 +14,9 @@ namespace Features.MipGenerator
         private ComputeShader GPUCopyColor;
         private int GPUCopyColorKernelID;
 
+        private ComputeShader spdCompatibleCS;
         private ComputeShader spdCS;
+
         private int spdKernelID;
 
         internal class MipGeneratePassData
@@ -32,6 +35,10 @@ namespace Features.MipGenerator
 
             internal SPDConstants spdConstants;
             internal int2 dispatchThreadGroupCountXY;
+
+            internal bool fp16;
+            internal bool wavefront;
+            internal bool compatible;
         }
 
         internal unsafe struct SPDConstants
@@ -94,66 +101,29 @@ namespace Features.MipGenerator
 
             cmd.SetComputeBufferParam(data.spdCS, data.spdKernelID, SPDShaderID.spdGlobalAtomic, data.atomicBuffer);
 
+            var maxMipLevel = math.max(SystemInfo.supportedRandomWriteTargetCount - 1, data.spdConstants.mips); //need atomic uav
+
+            data.spdCS.shaderKeywords = null;
+            CoreUtils.SetKeyword(data.spdCS, "COMPATIBLE", data.compatible);
+            CoreUtils.SetKeyword(data.spdCS, "FP16", data.fp16);
+            CoreUtils.SetKeyword(data.spdCS, "WAVEFRONT", data.wavefront);
+
+
             //note:
             //d3d11 only support 8 uav.....
-            for (int i = 0; i <= data.spdConstants.mips; i++)
+            for (int i = 0; i <= maxMipLevel; i++)
             {
                 cmd.SetComputeTextureParam(data.spdCS, data.spdKernelID, MipBindArray[i], data.outputTexture, i);
             }
 
-            for (int i = data.spdConstants.mips + 1; i <= 12; i++)
+            //fill up texture descriptor
+
+            for (int i = maxMipLevel + 1; i <= 12; i++)
             {
                 cmd.SetComputeTextureParam(data.spdCS, data.spdKernelID, MipBindArray[i], data.outputTexture);
             }
 
             cmd.DispatchCompute(data.spdCS, data.spdKernelID, data.dispatchThreadGroupCountXY.x, data.dispatchThreadGroupCountXY.y, 1);
-
-
-            // int pass = 0;
-            // while (mipLast > 0)
-            // {
-            //     var iter = math.min(6, mipLast);
-            //     var dispatchX = RenderingUtilsExt.DivRoundUp(data.CopyDimension.x, 64 * (int)math.pow(2, 6 * pass));
-            //     var dispatchY = RenderingUtilsExt.DivRoundUp(data.CopyDimension.y, 64 * (int)math.pow(2, 6 * pass));
-            //
-            //     data.spdConstants.mips = iter;
-            //     data.spdConstants.numWorkGroups = dispatchX * dispatchY;
-            //
-            //     ConstantBuffer<SPDConstants>.Push(cmd, data.spdConstants, data.spdCS, Shader.PropertyToID("spdConstants"));
-            //
-            //
-            //     for (int i = 0; i <= iter; i++)
-            //     {
-            //         cmd.SetComputeTextureParam(data.spdCS, data.spdKernelID, MipBindArray[i], data.outputTexture, i + 6 * pass);
-            //         mipLast--;
-            //     }
-            //
-            //
-            //     cmd.DispatchCompute(data.spdCS, data.spdKernelID, dispatchX, dispatchY, 1);
-            //
-            //     pass += 1;
-            // }
-
-            //     if (counter == 0)
-            //     {
-            //         break;
-            //     }
-            //
-            //     pass += 1;
-            //     data.spdConstants.mips = counter;
-            //     ConstantBuffer<SPDConstants>.Push(cmd, data.spdConstants, data.spdCS, Shader.PropertyToID("spdConstants"));
-            // }
-            // for (int i = 0; i <= 6; i++)
-            // {
-            //     cmd.SetComputeTextureParam(data.spdCS, data.spdKernelID, MipBindArray[i], data.outputTexture, i);
-            // }
-            // cmd.SetComputeTextureParam(data.spdCS, data.spdKernelID, SPDShaderID.rw_spd_mip0, data.outputTexture, 0);
-            // cmd.SetComputeTextureParam(data.spdCS, data.spdKernelID, SPDShaderID.rw_spd_mip1, data.outputTexture, 1);
-            // cmd.SetComputeTextureParam(data.spdCS, data.spdKernelID, SPDShaderID.rw_spd_mip2, data.outputTexture, 2);
-            // cmd.SetComputeTextureParam(data.spdCS, data.spdKernelID, SPDShaderID.rw_spd_mip3, data.outputTexture, 3);
-            // cmd.SetComputeTextureParam(data.spdCS, data.spdKernelID, SPDShaderID.rw_spd_mip4, data.outputTexture, 4);
-            // cmd.SetComputeTextureParam(data.spdCS, data.spdKernelID, SPDShaderID.rw_spd_mip5, data.outputTexture, 5);
-            // cmd.SetComputeTextureParam(data.spdCS, data.spdKernelID, SPDShaderID.rw_spd_mip6, data.outputTexture, 6);
         }
 
         static void SpdSetup(
@@ -190,12 +160,30 @@ namespace Features.MipGenerator
         }
 
 
-        public TextureHandle SPDGenerateMip(RenderGraph renderGraph, TextureHandle inputTexture, int mipLevel = -1)
+        public TextureHandle SPDGenerateMip(RenderGraph renderGraph, TextureHandle inputTexture, int mipLevel = -1, bool fp16 = false, bool waveFront = false)
         {
             using (var builder = renderGraph.AddComputePass<MipGeneratePassData>("FidelityFX SPD Mip Generator", out var passData))
             {
                 builder.AllowPassCulling(false);
-                passData.spdCS = spdCS;
+
+                bool compatible = true;
+                switch (SystemInfo.graphicsDeviceType)
+                {
+                    case GraphicsDeviceType.Metal:
+                        compatible = false;
+                        break;
+                    case GraphicsDeviceType.Direct3D12:
+                        compatible = false;
+                        break;
+                    case GraphicsDeviceType.Vulkan:
+                        compatible = false;
+                        break;
+                    default:
+                        break;
+                }
+
+
+                passData.spdCS = !compatible || (fp16 && waveFront) ? spdCS : spdCompatibleCS;
                 passData.spdKernelID = spdKernelID;
                 passData.GPUCopyColor = GPUCopyColor;
                 passData.GPUCopyColorKernelID = GPUCopyColorKernelID;
@@ -230,6 +218,10 @@ namespace Features.MipGenerator
                 passData.atomicBuffer = counter;
                 passData.spdConstants = spdConst;
                 passData.dispatchThreadGroupCountXY = dispatchThreadGroupCountXY;
+
+                passData.fp16 = fp16;
+                passData.wavefront = waveFront;
+                passData.compatible = compatible;
 
                 builder.UseTexture(passData.inputTexture, AccessFlags.ReadWrite);
                 builder.UseTexture(passData.outputTexture, AccessFlags.ReadWrite);

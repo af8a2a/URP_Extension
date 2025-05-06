@@ -32,7 +32,7 @@ namespace URP_Extension.Features.Playground
             var resourceData = frameData.Get<UniversalResourceData>();
 
             var cameraColor = resourceData.activeColorTexture;
-            resourceData.cameraColor = MipGenerator.Instance.SPDGenerateMip(renderGraph, cameraColor,4);
+            resourceData.cameraColor = MipGenerator.Instance.SPDGenerateMip(renderGraph, cameraColor,-1);
 
 
             // var desc = renderGraph.GetTextureDesc(resourceData.activeColorTexture);
