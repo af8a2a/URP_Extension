@@ -1,7 +1,7 @@
-﻿using UnityEngine;
-using UnityEngine.Rendering;
+﻿using Unity.Mathematics;
+using UnityEngine;
 
-namespace URP_Extension.Features.Utility
+namespace Features.Utility
 {
     public static class RenderingUtilsExt
     {
@@ -40,6 +40,12 @@ namespace URP_Extension.Features.Utility
                 ComputeViewportScale(viewportSize.y, bufferSize.y), // Scale(y)
                 ComputeViewportLimit(viewportSize.x, bufferSize.x), // Limit(x)
                 ComputeViewportLimit(viewportSize.y, bufferSize.y)); // Limit(y)
+        }
+
+
+        public static int RoundUpToPowerOfTwo(int arg)
+        {
+            return 1 << math.ceillog2(arg);
         }
 
         public static int CalcMipCount(Vector2Int textureSize)
