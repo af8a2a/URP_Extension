@@ -1,57 +1,59 @@
-using Features.OcclusionOutline;
-using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 
-public class OcclusionOutlineFeature : ScriptableRendererFeature
+namespace Features.OcclusionOutline
 {
-    class CustomRenderPass : ScriptableRenderPass
+    [DisallowMultipleRendererFeature]
+    public class OcclusionOutlineFeature : ScriptableRendererFeature
     {
-        public CustomRenderPass()
+        class CustomRenderPass : ScriptableRenderPass
         {
-            profilingSampler = new ProfilingSampler(nameof(OcclusionOutlineFeature));
-        }
-
-        class PassData
-        {
-        }
-
-        public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
-        {
-            UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
-
-            using (var builder =
-                   renderGraph.AddRasterRenderPass<PassData>("Occlusion Outline", out var passData, profilingSampler))
+            public CustomRenderPass()
             {
-                builder.AllowGlobalStateModification(true);
-                builder.AllowPassCulling(false);
-                builder.SetRenderAttachment(resourceData.activeColorTexture, 0);
+                profilingSampler = new ProfilingSampler(nameof(OcclusionOutlineFeature));
+            }
 
-                builder.SetRenderFunc((PassData data, RasterGraphContext rgContext) =>
+            class PassData
+            {
+            }
+
+            public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
+            {
+                UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
+
+                using (var builder =
+                       renderGraph.AddRasterRenderPass<PassData>("Occlusion Outline", out var passData, profilingSampler))
                 {
-                    var cmd = rgContext.cmd;
-                    OcclusionOutlineDrawSystem.Instance.Render(cmd);
-                });
+                    builder.AllowGlobalStateModification(true);
+                    builder.AllowPassCulling(false);
+                    builder.SetRenderAttachment(resourceData.activeColorTexture, 0);
+
+                    builder.SetRenderFunc((PassData data, RasterGraphContext rgContext) =>
+                    {
+                        var cmd = rgContext.cmd;
+                        OcclusionOutlineDrawSystem.Instance.Render(cmd);
+                    });
+                }
             }
         }
-    }
 
-    CustomRenderPass m_ScriptablePass;
+        CustomRenderPass m_ScriptablePass;
 
-    /// <inheritdoc/>
-    public override void Create()
-    {
-        m_ScriptablePass = new CustomRenderPass();
+        /// <inheritdoc/>
+        public override void Create()
+        {
+            m_ScriptablePass = new CustomRenderPass();
 
-        // Configures where the render pass should be injected.
-        m_ScriptablePass.renderPassEvent = RenderPassEvent.AfterRenderingTransparents;
-    }
+            // Configures where the render pass should be injected.
+            m_ScriptablePass.renderPassEvent = RenderPassEvent.AfterRenderingTransparents;
+        }
 
-    // Here you can inject one or multiple render passes in the renderer.
-    // This method is called when setting up the renderer once per-camera.
-    public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
-    {
-        renderer.EnqueuePass(m_ScriptablePass);
+        // Here you can inject one or multiple render passes in the renderer.
+        // This method is called when setting up the renderer once per-camera.
+        public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
+        {
+            renderer.EnqueuePass(m_ScriptablePass);
+        }
     }
 }

@@ -6,7 +6,7 @@ using UnityEngine.Rendering.RendererUtils;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 
-namespace URP_Extension.Features.ScreenSpaceRaytracing
+namespace Features.ScreenSpaceRaytracing
 {
     public class ForwardGBufferPass : ScriptableRenderPass
     {

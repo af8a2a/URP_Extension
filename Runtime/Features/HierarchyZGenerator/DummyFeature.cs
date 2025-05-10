@@ -1,9 +1,11 @@
-﻿using UnityEngine;
+﻿using Features.ColorPyramid;
 using UnityEngine.Rendering.Universal;
 using URP_Extension.Features.ColorPyramid;
+using URP_Extension.Features.HierarchyZGenerator;
 
-namespace URP_Extension.Features.HierarchyZGenerator
+namespace Features.HierarchyZGenerator
 {
+    [DisallowMultipleRendererFeature]
     public class DummyFeature : ScriptableRendererFeature
     {
         HierarchyZPass pass;

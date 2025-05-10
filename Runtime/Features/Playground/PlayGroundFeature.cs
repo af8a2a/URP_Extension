@@ -1,8 +1,10 @@
 ﻿using UnityEngine.Rendering.Universal;
+using URP_Extension.Features.Playground;
 
-namespace URP_Extension.Features.Playground
+namespace Features.Playground
 {
     //use to test my feature
+    [DisallowMultipleRendererFeature]
     public class PlayGroundFeature : ScriptableRendererFeature
     {
         PlayGroundPass pass;

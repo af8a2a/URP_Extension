@@ -6,6 +6,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace Features.Filter.TemporalDenoiser
 {
+    [DisallowMultipleRendererFeature]
     public class TemporalAntiAliasingFeature : ScriptableRendererFeature
     {
         TemporalAntiAliasingPass temporalAntiAliasingPass;

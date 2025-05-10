@@ -7,6 +7,7 @@ using UniversalCameraData = UnityEngine.Rendering.Universal.UniversalCameraData;
 
 namespace Features.Snapdragon_GSR2
 {
+    [DisallowMultipleRendererFeature]
     public class GSR2Feature : ScriptableRendererFeature
     {
 

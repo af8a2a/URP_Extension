@@ -3,6 +3,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace Features.Postprocessing.DepthOfField.DiaphragmDOF
 {
+    [DisallowMultipleRendererFeature]
     public class DepthOfFieldFeature : ScriptableRendererFeature
     {
         DiaphragmDoFPass diaphragmDoFPass;

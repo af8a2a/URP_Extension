@@ -1,8 +1,10 @@
 ﻿using UnityEngine;
 using UnityEngine.Rendering.Universal;
+using URP_Extension.Features.SinglePassBlur;
 
-namespace URP_Extension.Features.SinglePassBlur
+namespace Features.FidelityFX.SinglePassBlur
 {
+    [DisallowMultipleRendererFeature]
     public class SinglePassBlurFeature : ScriptableRendererFeature
     {
         [SerializeField] ComputeShader computeShader;

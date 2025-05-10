@@ -2,9 +2,12 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using URP_Extension.Features.ScreenSpaceRaytracing.ScreenSpacePathTracing;
 
-namespace URP_Extension.Features.ScreenSpaceRaytracing.ScreenSpacePathTracing
+namespace Features.ScreenSpaceRaytracing.ScreenSpacePathTracing
 {
+    [DisallowMultipleRendererFeature]
+
     public class ScreenSpacePathTracingFeature : ScriptableRendererFeature
     {
         public enum Accumulation
@@ -175,7 +178,7 @@ namespace URP_Extension.Features.ScreenSpaceRaytracing.ScreenSpacePathTracing
                 m_ForwardGBufferPass.Dispose();
         }
 
-        void StoreAmbientSettings(ScreenSpacePathTracing ssptVolume)
+        void StoreAmbientSettings(URP_Extension.Features.ScreenSpaceRaytracing.ScreenSpacePathTracing.ScreenSpacePathTracing ssptVolume)
         {
             if (!ssptVolume.ambientStored.value)
             {
@@ -188,7 +191,7 @@ namespace URP_Extension.Features.ScreenSpaceRaytracing.ScreenSpacePathTracing
             }
         }
 
-        void RestoreAmbientSettings(ScreenSpacePathTracing ssptVolume)
+        void RestoreAmbientSettings(URP_Extension.Features.ScreenSpaceRaytracing.ScreenSpacePathTracing.ScreenSpacePathTracing ssptVolume)
         {
             if (ssptVolume != null && ssptVolume.ambientStored.value)
             {
@@ -201,7 +204,7 @@ namespace URP_Extension.Features.ScreenSpaceRaytracing.ScreenSpacePathTracing
             }
         }
 
-        void DisableAmbientSettings(ScreenSpacePathTracing ssptVolume)
+        void DisableAmbientSettings(URP_Extension.Features.ScreenSpaceRaytracing.ScreenSpacePathTracing.ScreenSpacePathTracing ssptVolume)
         {
             if (ssptVolume.ambientStored.value)
             {
@@ -283,7 +286,7 @@ namespace URP_Extension.Features.ScreenSpaceRaytracing.ScreenSpacePathTracing
                 isMSAALogPrinted = false;
 
             var stack = VolumeManager.instance.stack;
-            ScreenSpacePathTracing ssptVolume = stack.GetComponent<ScreenSpacePathTracing>();
+            URP_Extension.Features.ScreenSpaceRaytracing.ScreenSpacePathTracing.ScreenSpacePathTracing ssptVolume = stack.GetComponent<URP_Extension.Features.ScreenSpaceRaytracing.ScreenSpacePathTracing.ScreenSpacePathTracing>();
             bool isActive = ssptVolume != null && ssptVolume.IsActive();
 
             // [WIP] Try to automatically adjust the ambient settings (vary by scene) to improve usability.
@@ -314,7 +317,7 @@ namespace URP_Extension.Features.ScreenSpaceRaytracing.ScreenSpacePathTracing
             m_AccumulationPass.maximumSample = ssptVolume.maximumSamples.value;
             m_AccumulationPass.ssptVolume = ssptVolume;
 
-            if (ssptVolume.noiseMethod.value == ScreenSpacePathTracing.NoiseType.HashedRandom)
+            if (ssptVolume.noiseMethod.value == URP_Extension.Features.ScreenSpaceRaytracing.ScreenSpacePathTracing.ScreenSpacePathTracing.NoiseType.HashedRandom)
             {
                 m_PathTracingMaterial.EnableKeyword("_METHOD_HASHED_RANDOM");
                 m_PathTracingMaterial.DisableKeyword("_METHOD_BLUE_NOISE");
@@ -325,8 +328,8 @@ namespace URP_Extension.Features.ScreenSpaceRaytracing.ScreenSpacePathTracing
                 m_PathTracingMaterial.DisableKeyword("_METHOD_HASHED_RANDOM");
             }
 
-            if (ssptVolume.denoiser.value == ScreenSpacePathTracing.DenoiserType.Temporal ||
-                ssptVolume.denoiser.value == ScreenSpacePathTracing.DenoiserType.SpatialTemporal)
+            if (ssptVolume.denoiser.value == URP_Extension.Features.ScreenSpaceRaytracing.ScreenSpacePathTracing.ScreenSpacePathTracing.DenoiserType.Temporal ||
+                ssptVolume.denoiser.value == URP_Extension.Features.ScreenSpaceRaytracing.ScreenSpacePathTracing.ScreenSpacePathTracing.DenoiserType.SpatialTemporal)
                 m_PathTracingMaterial.EnableKeyword("_TEMPORAL_ACCUMULATION");
             else
                 m_PathTracingMaterial.DisableKeyword("_TEMPORAL_ACCUMULATION");

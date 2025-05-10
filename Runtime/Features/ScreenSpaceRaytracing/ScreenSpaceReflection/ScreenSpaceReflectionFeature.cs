@@ -1,7 +1,9 @@
 ﻿using UnityEngine.Rendering.Universal;
+using URP_Extension.Features.ScreenSpaceRaytracing;
 
-namespace URP_Extension.Features.ScreenSpaceRaytracing
+namespace Features.ScreenSpaceRaytracing.ScreenSpaceReflection
 {
+    [DisallowMultipleRendererFeature]
     public class ScreenSpaceReflectionFeature : ScriptableRendererFeature
     {
         ForwardGBufferPass m_GBufferPass;

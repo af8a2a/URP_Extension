@@ -2,6 +2,7 @@
 
 namespace Features.Postprocessing.Bloom.MobileBloom
 {
+    [DisallowMultipleRendererFeature]
     public class MobileBloomFeature:ScriptableRendererFeature
     {
         private MobileBloomPass pass;

@@ -2,6 +2,7 @@
 
 namespace Features.Postprocessing.ToneMapping
 {
+    [DisallowMultipleRendererFeature]
     public class GranTurismoToneMappingFeature : ScriptableRendererFeature
     {
         public RenderPassEvent renderPassEvent = RenderPassEvent.BeforeRenderingPostProcessing;

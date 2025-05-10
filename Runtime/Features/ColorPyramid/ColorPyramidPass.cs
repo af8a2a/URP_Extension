@@ -1,12 +1,10 @@
-﻿using Features.MipGenerator;
-using UnityEngine;
-using UnityEngine.Experimental.Rendering;
+﻿using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
-using URP_Extension.Features.HierarchyZGenerator;
+using URP_Extension.Features.ColorPyramid;
 
-namespace URP_Extension.Features.ColorPyramid
+namespace Features.ColorPyramid
 {
     public class ColorPyramidPass : ScriptableRenderPass
     {
@@ -78,7 +76,7 @@ namespace URP_Extension.Features.ColorPyramid
             // Blitter.BlitCameraTexture(cmd, data.input, data.output);
             //note:D3D11 Not support ResourcesBarrier
 
-            data.ColorPyramidData.MipCount = MipGenerator.Instance.RenderColorGaussianPyramid(cmd,
+            data.ColorPyramidData.MipCount = MipGenerator.MipGenerator.Instance.RenderColorGaussianPyramid(cmd,
                 new Vector2Int(data.dimX,
                     data.dimY), data.input, data.output);
         }

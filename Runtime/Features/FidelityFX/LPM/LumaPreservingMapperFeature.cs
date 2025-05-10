@@ -2,9 +2,11 @@ using Features.LPM;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using URP_Extension.Features.FidelityFX.LPM;
 
-namespace URP_Extension.Features.FidelityFX.LPM
+namespace Features.FidelityFX.LPM
 {
+    [DisallowMultipleRendererFeature]
     public class LumaPreservingMapperFeature : ScriptableRendererFeature
     {
         [SerializeField] ComputeShader computeShader;

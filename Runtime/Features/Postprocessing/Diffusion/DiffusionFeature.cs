@@ -2,6 +2,7 @@
 
 namespace Features.Postprocessing.Diffusion
 {
+    [DisallowMultipleRendererFeature]
     public class DiffusionFeature : ScriptableRendererFeature
     {
         private DiffusionPass _diffusionPass;
@@ -18,5 +19,4 @@ namespace Features.Postprocessing.Diffusion
             renderer.EnqueuePass(_diffusionPass);
         }
     }
-
 }
