@@ -1,7 +1,7 @@
 ﻿using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
-namespace Features.DepthOfField.DiaphragmDOF
+namespace Features.Postprocessing.DepthOfField.DiaphragmDOF
 {
     public class DepthOfFieldFeature : ScriptableRendererFeature
     {

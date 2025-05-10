@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Serialization;
 
-namespace Features.DepthOfField.DiaphragmDOF
+namespace Features.Postprocessing.DepthOfField.DiaphragmDOF
 {
     /// <summary>
     /// The resolution at which HDRP processes the depth of field effect.
