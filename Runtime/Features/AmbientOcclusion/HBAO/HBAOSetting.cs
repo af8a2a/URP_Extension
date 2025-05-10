@@ -1,8 +1,6 @@
-using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.Serialization;
 
-namespace Features.AO.HBAO
+namespace Features.AmbientOcclusion.HBAO
 {
     [VolumeComponentMenu("HBAO Setting")]
     public sealed class HBAOSetting : VolumeComponent, IPostProcessComponent

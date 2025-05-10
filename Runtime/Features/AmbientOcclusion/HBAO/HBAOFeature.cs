@@ -1,6 +1,6 @@
 ﻿using UnityEngine.Rendering.Universal;
 
-namespace Features.AO.HBAO
+namespace Features.AmbientOcclusion.HBAO
 {
     [DisallowMultipleRendererFeature]
     public class HBAOFeature : ScriptableRendererFeature

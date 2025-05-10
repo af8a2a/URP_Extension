@@ -3,66 +3,31 @@
 
 #pragma kernel KMain
 
-Texture2DArray<float> DepthInput;
-Texture2D<float4> NormalInput;
-RWTexture2DArray<float2> HBAO;
+Texture2DArray<float> LinearDepthInput;
+Texture2DArray<float4> NormalViewInput;
+RWTexture2DArray<float4> AOOutput;
 
 #define AO_RANDOMTEX_SIZE 4
-#define DIRECTIONS  8
-#define STEPS       6
-
-
-float Radius; // radius
+#define NUM_STEPS  4
+#define NUM_DIRECTIONS  8
+float4 _SSAO_UVToView;
+float RadiusToScreen; // radius
 float R2; // 1/radius
 float NegInvR2; // radius * radius
 float NDotVBias;
-float MaxRadiusPixels;
 float2 InvFullResolution;
-float2 InvQuarterResolution;
-
+float2 InvHalfResolution;
 float AOMultiplier;
 float PowExponent;
-
-float MaxDistance;
-float DistanceFalloff;
-
-float4 jitters[AO_RANDOMTEX_SIZE * AO_RANDOMTEX_SIZE]; // angle, jitter,unused unused
-
-half4 _SSAO_UVToView;
+float4 jitters[AO_RANDOMTEX_SIZE * AO_RANDOMTEX_SIZE];
 
 
-inline float3 GetNormalVS(int2 coord)
-{
-    float3 norm = NormalInput[coord];
-    float3 view_Normal = normalize(mul((float3x3)unity_WorldToCamera, norm));
-    return float3(view_Normal.xy, view_Normal.z);
-}
-
-
-inline half3 UVToView(half2 uv, half linearDepth)
-{
-    return half3((uv * _SSAO_UVToView.xy + _SSAO_UVToView.zw) * linearDepth, linearDepth);
-}
-
-
-float3 FetchQuarterResViewPos(float2 UV, int slice)
-{
-    float ViewDepth = DepthInput.SampleLevel(sampler_LinearClamp, float3(UV, slice), 0).x;
-    return UVToView(UV, ViewDepth);
-}
-
-//----------------------------------------------------------------------------------
 float Falloff(float DistanceSquare)
 {
     // 1 scalar mad instruction
     return DistanceSquare * NegInvR2 + 1.0;
 }
 
-//----------------------------------------------------------------------------------
-// P = view-space position at the kernel center
-// N = view-space normal at the kernel center
-// S = view-space position of the current sample
-//----------------------------------------------------------------------------------
 float ComputeAO(float3 P, float3 N, float3 S)
 {
     float3 V = S - P;
@@ -73,83 +38,93 @@ float ComputeAO(float3 P, float3 N, float3 S)
     return clamp(NdotV - NDotVBias, 0, 1) * clamp(Falloff(VdotV), 0, 1);
 }
 
-
-inline float3 FetchViewNormals(float2 uv)
+float2 RotateDirection(float2 Dir, float2 CosSin)
 {
-    float3 N = NormalInput.SampleLevel(sampler_LinearClamp, uv, 0);
-    N = normalize(TransformWorldToViewDir(N)); // normals are worldspace, convert to viewspace
-    N = float3(N.x, -N.yz);
-    return N;
+    return float2(Dir.x * CosSin.x - Dir.y * CosSin.y,
+                  Dir.x * CosSin.y + Dir.y * CosSin.x);
+}
+
+float4 GetJitter(int slice)
+{
+    // Get the current jitter vector from the per-pass constant buffer
+    return jitters[slice];
+}
+
+float3 UVToView(float2 uv, float ViewDepth)
+{
+    return float3((uv * _SSAO_UVToView.xy + _SSAO_UVToView.zw) * ViewDepth, ViewDepth);
+}
+
+float3 FetchViewPos(float2 UV, int slice)
+{
+    float ViewDepth = LinearDepthInput.SampleLevel(sampler_LinearClamp, float3(UV, slice), 0);
+    return UVToView(UV, ViewDepth);
+}
+
+float3 FetchHalfResViewPos(float2 UV, int slice)
+{
+    float ViewDepth = LinearDepthInput.SampleLevel(sampler_LinearClamp, float3(UV, slice), 0).x;
+    return UVToView(UV, ViewDepth);
 }
 
 
-float CalcAO(float2 uv, int slice)
+float ComputeCoarseAO(float2 FullResUV, float RadiusPixels, float4 Rand, float3 ViewPosition, float3 ViewNormal, int slice)
 {
-    float3 P = FetchQuarterResViewPos(uv, slice);
+    RadiusPixels /= 2.0;
+    // Divide by NUM_STEPS+1 so that the farthest samples are not fully attenuated
+    float StepSizePixels = RadiusPixels / (NUM_STEPS + 1);
 
-    clip(MaxDistance - P.z < 0);
+    const float Alpha = 2.0 * PI / NUM_DIRECTIONS;
+    float AO = 0;
 
-    float stepSize = min((Radius / P.z), MaxRadiusPixels) / (STEPS + 1.0);
 
-    float3 N = FetchViewNormals(uv);
-    //float2 rand = FetchNoise(positionSS);
-    //float2 rand = FetchNoise(input.positionCS.xy);
-    float2 rand = jitters[slice].xy;
-
-    const float alpha = 2.0 * PI / DIRECTIONS;
-    float ao = 0;
-
-    UNITY_UNROLL
-    for (int d = 0; d < DIRECTIONS; ++d)
+    for (int DirectionIndex = 0; DirectionIndex < NUM_DIRECTIONS; ++DirectionIndex)
     {
-        float angle = alpha * (float(d) + rand.x);
+        float Angle = Alpha * DirectionIndex;
 
         // Compute normalized 2D direction
-        float cosA, sinA;
-        sincos(angle, sinA, cosA);
-        float2 direction = float2(cosA, sinA);
+        float2 Direction = RotateDirection(float2(cos(Angle), sin(Angle)), Rand.xy);
 
         // Jitter starting sample within the first step
-        float rayPixels = (frac(rand.y) * stepSize + 1.0);
+        float RayPixels = (Rand.z * StepSizePixels + 1.0);
 
-        UNITY_UNROLL
-        for (int s = 0; s < STEPS; ++s)
+        for (int StepIndex = 0; StepIndex < NUM_STEPS; ++StepIndex)
         {
-            float2 snappedUV = round(rayPixels * direction) * InvQuarterResolution.xy + uv;
-            float3 S = FetchQuarterResViewPos(snappedUV, slice);
+            float2 SnappedUV = round(RayPixels * Direction) * InvHalfResolution + FullResUV;
+            float3 S = FetchHalfResViewPos(SnappedUV, slice);
 
-            rayPixels += stepSize;
+            RayPixels += StepSizePixels;
 
-            float contrib = ComputeAO(P, N, S);
-            ao += contrib;
+            AO += ComputeAO(ViewPosition, ViewNormal, S);
         }
     }
 
 
-    float aoOutput = ao;
-
-    // apply bias multiplier
-    aoOutput *= (AOMultiplier / (STEPS * DIRECTIONS));
-
-    float fallOffStart = MaxDistance - DistanceFalloff;
-    float distFactor = saturate((P.z - fallOffStart) / (MaxDistance - fallOffStart));
-
-    aoOutput = lerp(saturate(1 - aoOutput), 1, distFactor);
-    return aoOutput;
+    AO *= AOMultiplier / (NUM_DIRECTIONS * NUM_STEPS);
+    return clamp(1.0 - AO * 2.0, 0, 1);
 }
 
 
-[numthreads(8, 8, 1)]
-void KMain(uint3 tid : SV_DispatchThreadID)
+//----------------------------------------------------------------------------------
+[numthreads(8,8,1)]
+void KMain(uint3 id : SV_DispatchThreadID)
 {
-    float2 FullresUV = (floor(tid.xy) + 0.5) * (InvQuarterResolution);
+    int slice = id.z;
+    int2 AOCoord = id.xy;
 
-    int slice = tid.z;
-    float3 PositionVS = FetchQuarterResViewPos(FullresUV, slice);
-    float4 NormalWS = NormalInput.SampleLevel(sampler_LinearClamp, FullresUV, 0);
-    float3 NormalVS = GetNormalVS(NormalWS);
+    float2 uv = (float2(AOCoord) + 0.5f) * InvHalfResolution;
+
+    float3 ViewPosition = FetchHalfResViewPos(uv, slice);
+    float4 NormalAndAO = NormalViewInput[int3(AOCoord, slice)];
+    float3 ViewNormal = NormalAndAO.xyz;
+
+    // Compute projection of disk of radius control.R into screen space
+    float RadiusPixels = RadiusToScreen / ViewPosition.z;
+
+    // Get jitter vector for the current full-res pixel
+    float4 Rand = GetJitter(slice);
 
 
-
-    HBAO[tid.xyz] = float4(pow(CalcAO(FullresUV, slice), PowExponent), PositionVS.z, 0, 0);
+    float AO = ComputeCoarseAO(uv, RadiusPixels, Rand, ViewPosition, ViewNormal, slice);
+    AOOutput[int3(AOCoord, slice)] = float4(pow(AO, PowExponent), ViewPosition.z, 0, 0);
 }
