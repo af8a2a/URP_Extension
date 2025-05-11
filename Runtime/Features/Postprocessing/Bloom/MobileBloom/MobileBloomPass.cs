@@ -130,30 +130,28 @@ namespace Features.Postprocessing.Bloom.MobileBloom
                 bloomMaterial.SetVector(ShaderID._Bloom_Custom_BlurCompositeWeight, setting.blurCompositeWeight.value);
                 bloomMaterial.SetColor(ShaderID._Bloom_Custom_ColorTint, setting.tint.value);
 
-
+                var cameraData = frameData.Get<UniversalCameraData>();
                 var resourceData = frameData.Get<UniversalResourceData>();
 
                 var desc = renderGraph.GetTextureDesc(resourceData.activeColorTexture);
                 var scale = 0.25f;
 
-                data.preFilterTexture = builder.CreateTransientTexture(new TextureDesc(Vector4.one)
+                var scaledWidth = (int)(cameraData.pixelHeight * scale);
+                var scaleHeight = (int)(cameraData.pixelHeight * scale);
+                data.preFilterTexture = builder.CreateTransientTexture(new TextureDesc(scaledWidth, scaleHeight)
                 {
-                    width = (int)(desc.width * scale),
-                    height = (int)(desc.height * scale),
                     format = desc.format,
                     filterMode = FilterMode.Bilinear,
                     name = "Pre-Filter",
                 });
-                data.preFilterBlurTexture = renderGraph.CreateTexture(new TextureDesc(Vector4.one)
+                data.preFilterBlurTexture = renderGraph.CreateTexture(new TextureDesc(scaledWidth, scaleHeight)
                 {
-                    width = (int)(desc.width * scale),
-                    height = (int)(desc.height * scale),
                     format = desc.format,
                     filterMode = FilterMode.Bilinear,
                     name = "Pre-Filter Blur",
                 });
 
-                data.OutputTexture = renderGraph.CreateTexture(new TextureDesc(Vector4.one)
+                data.OutputTexture = renderGraph.CreateTexture(new TextureDesc(cameraData.pixelHeight, cameraData.pixelHeight)
                 {
                     format = desc.format,
                     filterMode = FilterMode.Bilinear,
@@ -167,16 +165,13 @@ namespace Features.Postprocessing.Bloom.MobileBloom
                 data.bloomMipUpTexture = new TextureHandle[4];
                 // Create bloom mip pyramid textures
                 {
-                    data.bloomMipDownTexture[0] = builder.CreateTransientTexture(new TextureDesc(Vector2.one)
+                    data.bloomMipDownTexture[0] = builder.CreateTransientTexture(new TextureDesc(scaledWidth, scaleHeight)
                     {
-                        width = (int)(desc.width * scale),
-                        height = (int)(desc.height * scale),
-
                         format = desc.format,
                         filterMode = FilterMode.Bilinear,
                         name = "_BloomMipDown0"
                     });
-                    data.bloomMipUpTexture[0] = builder.CreateTransientTexture(new TextureDesc(Vector2.one)
+                    data.bloomMipUpTexture[0] = builder.CreateTransientTexture(new TextureDesc(scaledWidth, scaleHeight)
                     {
                         width = (int)(desc.width * scale),
                         height = (int)(desc.height * scale),
@@ -191,22 +186,22 @@ namespace Features.Postprocessing.Bloom.MobileBloom
                     for (int i = 1; i < iterations; i++)
                     {
                         scale /= 2f;
+                        scaledWidth = (int)(cameraData.pixelHeight * scale);
+                        scaleHeight = (int)(cameraData.pixelHeight * scale);
+
                         ref TextureHandle mipDown = ref data.bloomMipDownTexture[i];
                         ref TextureHandle mipUp = ref data.bloomMipUpTexture[i];
 
 
                         // NOTE: Reuse RTHandle names for TextureHandles
-                        mipDown = builder.CreateTransientTexture(new TextureDesc(Vector2.one)
+                        mipDown = builder.CreateTransientTexture(new TextureDesc(scaledWidth, scaleHeight)
                         {
-                            width = (int)(desc.width * scale),
-                            height = (int)(desc.height * scale),
-
                             format = desc.format,
                             filterMode = FilterMode.Bilinear,
                             name = $"_BloomMipDown{i}"
                         });
                         ;
-                        mipUp = builder.CreateTransientTexture(new TextureDesc(Vector2.one)
+                        mipUp = builder.CreateTransientTexture(new TextureDesc(scaledWidth, scaleHeight)
                         {
                             width = (int)(desc.width * scale),
                             height = (int)(desc.height * scale),
