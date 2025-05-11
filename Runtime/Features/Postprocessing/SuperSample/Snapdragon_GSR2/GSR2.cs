@@ -1,9 +1,6 @@
-﻿using System;
-using UnityEngine;
-using UnityEngine.Rendering;
-using UnityEngine.Rendering.Universal;
+﻿using UnityEngine.Rendering;
 
-namespace Features.Snapdragon_GSR2
+namespace Features.Postprocessing.SuperSample.Snapdragon_GSR2
 {
     public sealed class GSR2 : VolumeComponent, IPostProcessComponent
     {
