@@ -3,16 +3,14 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 
-namespace Features.Postprocessing.Bloom.MobileBloom
+namespace Features.Postprocessing.BackgroundLightScatter
 {
-    public class MobileBloomPass : ScriptableRenderPass
+    public class BackgroundLightScatterPass : ScriptableRenderPass
     {
-        Material _material;
+        private Material _material;
 
-        Material bloomMaterial
-        {
-            get { return _material ??= new Material(Shader.Find("PostProcessing/MobileBloom")); }
-        }
+        private Material scatterMaterial => _material ??= new Material(Shader.Find("PostProcessing/BackgroundLighting"));
+
 
         class PassData
         {
@@ -27,26 +25,24 @@ namespace Features.Postprocessing.Bloom.MobileBloom
             internal TextureHandle preFilterTexture;
             internal TextureHandle preFilterBlurTexture;
 
-            internal TextureHandle[] bloomMipUpTexture;
-            internal TextureHandle[] bloomMipDownTexture;
+            internal TextureHandle[] MipUpTexture;
+            internal TextureHandle[] MipDownTexture;
         }
-
-
 
 
         class ShaderID
         {
-            public static readonly int _Bloom_Custom_Params = Shader.PropertyToID("_Bloom_Custom_Params");
-            public static readonly int _Bloom_Custom_ColorTint = Shader.PropertyToID("_Bloom_Custom_ColorTint");
-            public static readonly int _Bloom_Custom_BlurScaler = Shader.PropertyToID("_Bloom_Custom_BlurScaler");
-            public static readonly int _Bloom_Custom_BlurCompositeWeight = Shader.PropertyToID("_Bloom_Custom_BlurCompositeWeight");
-            public static int[] _BloomMipUp = new int[16];
-            public static int[] _BloomMipDown = new int[16];
+            public static readonly int _Params = Shader.PropertyToID("_Params");
+            public static readonly int _ColorTint = Shader.PropertyToID("_ColorTint");
+            public static readonly int _BlurScaler = Shader.PropertyToID("_BlurScaler");
+            public static readonly int _BlurCompositeWeight = Shader.PropertyToID("_BlurCompositeWeight");
             public static readonly int _Bloom_Texture = Shader.PropertyToID("_Bloom_Texture");
+
+            public static int[] _MipUp = new int[16];
+            public static int[] _MipDown = new int[16];
         }
 
-
-        static void ExecuteBloomPass(PassData data, UnsafeGraphContext context)
+        static void ExecutePass(PassData data, UnsafeGraphContext context)
         {
             var cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
             CoreUtils.SetKeyword(cmd, "_USE_RGBM", true);
@@ -55,10 +51,10 @@ namespace Features.Postprocessing.Bloom.MobileBloom
                 data.material, 0);
 
             // preFilterBlur
-            cmd.SetGlobalVector(ShaderID._Bloom_Custom_BlurScaler, new Vector4(1, 0, 0, 0));
+            cmd.SetGlobalVector(ShaderID._BlurScaler, new Vector4(1, 0, 0, 0));
             Blitter.BlitCameraTexture(cmd, data.preFilterTexture, data.preFilterBlurTexture, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store,
                 data.material, 2);
-            cmd.SetGlobalVector(ShaderID._Bloom_Custom_BlurScaler, new Vector4(0, 1, 0, 0));
+            cmd.SetGlobalVector(ShaderID._BlurScaler, new Vector4(0, 1, 0, 0));
             Blitter.BlitCameraTexture(cmd, data.preFilterTexture, data.preFilterBlurTexture, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store,
                 data.material, 2);
 
@@ -66,56 +62,60 @@ namespace Features.Postprocessing.Bloom.MobileBloom
 
             for (var level = 0; level < data.iterations; level++)
             {
-                Blitter.BlitCameraTexture(cmd, last, data.bloomMipDownTexture[level], RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store,
+                Blitter.BlitCameraTexture(cmd, last, data.MipDownTexture[level], RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store,
                     data.material,
                     1);
-                last = data.bloomMipDownTexture[level];
+                last = data.MipDownTexture[level];
             }
 
             // blur mips
             for (var level = 0; level < data.iterations; level++)
             {
-                cmd.SetGlobalVector(ShaderID._Bloom_Custom_BlurScaler, new Vector4(1, 0, 0, 0));
-                Blitter.BlitCameraTexture(cmd, data.bloomMipDownTexture[level], data.bloomMipUpTexture[level], RenderBufferLoadAction.DontCare,
+                cmd.SetGlobalVector(ShaderID._BlurScaler, new Vector4(1, 0, 0, 0));
+                Blitter.BlitCameraTexture(cmd, data.MipDownTexture[level], data.MipUpTexture[level], RenderBufferLoadAction.DontCare,
                     RenderBufferStoreAction.Store, data.material, 3 + level);
 
-                cmd.SetGlobalVector(ShaderID._Bloom_Custom_BlurScaler, new Vector4(0, 1, 0, 0));
-                Blitter.BlitCameraTexture(cmd, data.bloomMipUpTexture[level], data.bloomMipDownTexture[level], RenderBufferLoadAction.DontCare,
+                cmd.SetGlobalVector(ShaderID._BlurScaler, new Vector4(0, 1, 0, 0));
+                Blitter.BlitCameraTexture(cmd, data.MipUpTexture[level], data.MipDownTexture[level], RenderBufferLoadAction.DontCare,
                     RenderBufferStoreAction.Store, data.material, 3 + level);
             }
 
             // upsample once
             for (var level = 0; level < data.iterations; level++)
             {
-                data.material.SetTexture(ShaderID._BloomMipDown[level], data.bloomMipDownTexture[level]);
+                data.material.SetTexture(ShaderID._MipDown[level], data.MipDownTexture[level]);
             }
 
             Blitter.BlitCameraTexture(cmd, data.preFilterTexture, data.preFilterBlurTexture, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store,
                 data.material, 6);
 
 
-            //todo
-            //integrate in UberPost
             data.material.SetTexture(ShaderID._Bloom_Texture, data.preFilterBlurTexture);
-            Blitter.BlitCameraTexture(cmd, data.sourceTexture, data.OutputTexture, data.material, 7);
-        }
 
+            Blitter.BlitCameraTexture(cmd,
+                data.sourceTexture,
+                data.OutputTexture,
+                RenderBufferLoadAction.DontCare,
+                RenderBufferStoreAction.Store,
+                data.material,
+                7);
+        }
 
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
         {
-            var setting = VolumeManager.instance.stack.GetComponent<MobileBloom>();
-            if (setting == null || !setting.IsActive())
+            using (var builder = renderGraph.AddUnsafePass<PassData>("Background Light Scatter", out var data))
             {
-                return;
-            }
+                var setting = VolumeManager.instance.stack.GetComponent<BackgroundLightScatter>();
+                if (setting == null || !setting.IsActive())
+                {
+                    return;
+                }
 
-            using (var builder = renderGraph.AddUnsafePass<PassData>("Mobile Bloom", out var data))
-            {
                 var bloomParams = new Vector4(setting.threshold.value, setting.lumRangeScale.value, setting.preFilterScale.value, setting.intensity.value);
 
-                bloomMaterial.SetVector(ShaderID._Bloom_Custom_Params, bloomParams);
-                bloomMaterial.SetVector(ShaderID._Bloom_Custom_BlurCompositeWeight, setting.blurCompositeWeight.value);
-                bloomMaterial.SetColor(ShaderID._Bloom_Custom_ColorTint, setting.tint.value);
+                scatterMaterial.SetVector(ShaderID._Params, bloomParams);
+                scatterMaterial.SetVector(ShaderID._BlurCompositeWeight, setting.blurCompositeWeight.value);
+                scatterMaterial.SetColor(ShaderID._ColorTint, setting.tint.value);
 
                 var cameraData = frameData.Get<UniversalCameraData>();
                 var resourceData = frameData.Get<UniversalResourceData>();
@@ -125,6 +125,11 @@ namespace Features.Postprocessing.Bloom.MobileBloom
 
                 var scaledWidth = (int)(cameraData.pixelWidth * scale);
                 var scaleHeight = (int)(cameraData.pixelHeight * scale);
+
+
+                data.material = scatterMaterial;
+
+                
                 data.preFilterTexture = builder.CreateTransientTexture(new TextureDesc(scaledWidth, scaleHeight)
                 {
                     format = desc.format,
@@ -148,17 +153,17 @@ namespace Features.Postprocessing.Bloom.MobileBloom
 
                 int iterations = 3;
 
-                data.bloomMipDownTexture = new TextureHandle[4];
-                data.bloomMipUpTexture = new TextureHandle[4];
-                // Create bloom mip pyramid textures
+                data.MipDownTexture = new TextureHandle[4];
+                data.MipUpTexture = new TextureHandle[4];
+                // Create mip pyramid textures
                 {
-                    data.bloomMipDownTexture[0] = builder.CreateTransientTexture(new TextureDesc(scaledWidth, scaleHeight)
+                    data.MipDownTexture[0] = builder.CreateTransientTexture(new TextureDesc(scaledWidth, scaleHeight)
                     {
                         format = desc.format,
                         filterMode = FilterMode.Bilinear,
                         name = "_BloomMipDown0"
                     });
-                    data.bloomMipUpTexture[0] = builder.CreateTransientTexture(new TextureDesc(scaledWidth, scaleHeight)
+                    data.MipUpTexture[0] = builder.CreateTransientTexture(new TextureDesc(scaledWidth, scaleHeight)
                     {
                         width = (int)(desc.width * scale),
                         height = (int)(desc.height * scale),
@@ -167,8 +172,8 @@ namespace Features.Postprocessing.Bloom.MobileBloom
                         filterMode = FilterMode.Bilinear,
                         name = "_BloomMipUp0"
                     });
-                    ShaderID._BloomMipUp[0] = Shader.PropertyToID("_BloomMipUp0");
-                    ShaderID._BloomMipDown[0] = Shader.PropertyToID("_BloomMipDown0");
+                    ShaderID._MipUp[0] = Shader.PropertyToID("_MipUp0");
+                    ShaderID._MipDown[0] = Shader.PropertyToID("_MipDown0");
 
                     for (int i = 1; i < iterations; i++)
                     {
@@ -176,8 +181,8 @@ namespace Features.Postprocessing.Bloom.MobileBloom
                         scaledWidth = (int)(cameraData.pixelWidth * scale);
                         scaleHeight = (int)(cameraData.pixelHeight * scale);
 
-                        ref TextureHandle mipDown = ref data.bloomMipDownTexture[i];
-                        ref TextureHandle mipUp = ref data.bloomMipUpTexture[i];
+                        ref TextureHandle mipDown = ref data.MipDownTexture[i];
+                        ref TextureHandle mipUp = ref data.MipUpTexture[i];
 
 
                         // NOTE: Reuse RTHandle names for TextureHandles
@@ -187,7 +192,7 @@ namespace Features.Postprocessing.Bloom.MobileBloom
                             filterMode = FilterMode.Bilinear,
                             name = $"_BloomMipDown{i}"
                         });
-                        
+                        ;
                         mipUp = builder.CreateTransientTexture(new TextureDesc(scaledWidth, scaleHeight)
                         {
                             width = (int)(desc.width * scale),
@@ -196,14 +201,11 @@ namespace Features.Postprocessing.Bloom.MobileBloom
                             filterMode = FilterMode.Bilinear,
                             name = $"_BloomMipup{i}"
                         });
-                        ShaderID._BloomMipUp[i] = Shader.PropertyToID("_BloomMipUp" + i);
-                        ShaderID._BloomMipDown[i] = Shader.PropertyToID("_BloomMipDown" + i);
+                        ShaderID._MipUp[i] = Shader.PropertyToID("_MipUp" + i);
+                        ShaderID._MipDown[i] = Shader.PropertyToID("_MipDown" + i);
                     }
                 }
-
-
                 data.iterations = iterations;
-                data.material = bloomMaterial;
                 data.sourceTexture = resourceData.activeColorTexture;
 
                 builder.AllowPassCulling(false);
@@ -211,7 +213,8 @@ namespace Features.Postprocessing.Bloom.MobileBloom
                 builder.UseTexture(data.preFilterBlurTexture, AccessFlags.ReadWrite);
                 builder.UseTexture(data.OutputTexture, AccessFlags.ReadWrite);
 
-                builder.SetRenderFunc((PassData passData, UnsafeGraphContext context) => ExecuteBloomPass(passData, context));
+                builder.SetRenderFunc<PassData>(ExecutePass);
+
                 resourceData.cameraColor = data.OutputTexture;
             }
         }
