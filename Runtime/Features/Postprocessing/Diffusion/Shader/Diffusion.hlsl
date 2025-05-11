@@ -89,9 +89,9 @@ half4 frag_Multiply(Varyings i) : SV_Target
 //after tonemapping
 half4 frag_Filter(Varyings i) : SV_Target
 {
-    half4 color = SAMPLE_TEXTURE2D(_BlitTexture, sampler_LinearClamp, i.texcoord);
-    half4 color2 = SAMPLE_TEXTURE2D(_BlurTexture, sampler_LinearClamp, i.texcoord);
+    half4 color =FastTonemap( SAMPLE_TEXTURE2D(_BlitTexture, sampler_LinearClamp, i.texcoord));
+    half4 color2 = FastTonemap(SAMPLE_TEXTURE2D(_BlurTexture, sampler_LinearClamp, i.texcoord));
 
     color.rgb = 1 - (1 - color.rgb) * (1 - color2.rgb * _Filter);
-    return color;
+    return FastTonemapInvert(color);
 }
