@@ -1,6 +1,7 @@
 ﻿using System;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 
 namespace Features.MipGenerator
@@ -54,6 +55,7 @@ namespace Features.MipGenerator
 
         public static MipGenerator Instance => s_Instance.Value;
 
+        
 
         public int RenderDepthPyramid(CommandBuffer cmd, Vector2Int size, Texture source,
             RenderTexture destination)
