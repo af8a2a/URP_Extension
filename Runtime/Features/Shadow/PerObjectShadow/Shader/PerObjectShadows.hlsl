@@ -2,7 +2,7 @@
 #define PER_OBJECT_SHADOWS_INCLUDED
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Shadow/ShadowSamplingDisk.hlsl"
-#include "../../ShadowCommon/ShaderLibrary/ShadowsPCSS.hlsl"
+#include "Packages/com.unity.render-pipelines.universal.extension/ShaderLibray/Shadow/ShadowsPCSS.hlsl"
 float4 _PerObjectShadowmapTexture_TexelSize;
 TEXTURE2D_SHADOW(_PerObjectShadowmapTexture);
 TEXTURE2D_X(_PerObjectScreenSpaceShadowmapTexture);
