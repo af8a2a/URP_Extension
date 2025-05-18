@@ -75,6 +75,8 @@ namespace Features.MipGenerator
                     {
                         var threadX = RenderingUtilsExt.DivRoundUp(srcMipWidth, 8);
                         var threadY = RenderingUtilsExt.DivRoundUp(srcMipHeight, 8);
+                        cmd.SetComputeVectorParam(data.DepthPyramidShader, "_Size", new Vector4(srcMipWidth, srcMipHeight, 0, 0));
+
                         cmd.SetComputeTextureParam(data.DepthPyramidShader, data.DepthPyramidKernelID, "_Source", data.depthPyramidTexture, mipLevel);
                         cmd.SetComputeTextureParam(data.DepthPyramidShader, data.DepthPyramidKernelID, "_Destination", data.depthPyramidTexture, mipLevel + 1);
 
