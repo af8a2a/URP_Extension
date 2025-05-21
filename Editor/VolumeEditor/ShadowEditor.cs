@@ -1,4 +1,5 @@
 ﻿using Features.Shadow;
+using Features.Shadow.ShadowCommon;
 using UnityEditor;
 using UnityEditor.Rendering;
 using UnityEditorInternal;
@@ -10,6 +11,10 @@ namespace URP_Extension.Editor.VolumeEditor
     [CustomEditor(typeof(Shadows))]
     public class ShadowEditor : VolumeComponentEditor
     {
+        private SerializedDataParameter m_Enable;
+        SerializedDataParameter m_ShadowsAlgo;
+        SerializedDataParameter m_ShadowsIntensity;
+
         SerializedDataParameter m_MaxShadowDistance;
         SerializedDataParameter m_CascadeShadowSplitCount;
         SerializedDataParameter[] m_CascadeShadowSplits = new SerializedDataParameter[7];
@@ -46,6 +51,9 @@ namespace URP_Extension.Editor.VolumeEditor
         {
             var o = new PropertyFetcher<Shadows>(serializedObject);
 
+            m_Enable = Unpack(o.Find(x => x.enable));
+            m_ShadowsAlgo = Unpack(o.Find(x => x.shadowAlgo));
+            m_ShadowsIntensity = Unpack(o.Find(x => x.intensity));
             m_MaxShadowDistance = Unpack(o.Find(x => x.maxShadowDistance));
             m_CascadeShadowSplitCount = Unpack(o.Find(x => x.cascadeShadowSplitCount));
             m_CascadeShadowSplits[0] = Unpack(o.Find(x => x.cascadeShadowSplit0));
@@ -80,6 +88,12 @@ namespace URP_Extension.Editor.VolumeEditor
 
         public override void OnInspectorGUI()
         {
+            
+            PropertyField(m_Enable, EditorGUIUtility.TrTextContent("Shadow Enable"));
+
+            PropertyField(m_ShadowsAlgo, EditorGUIUtility.TrTextContent("Shadow Algo"));
+            PropertyField(m_ShadowsIntensity, EditorGUIUtility.TrTextContent("Shadow Intensity"));
+
             PropertyField(m_MaxShadowDistance, EditorGUIUtility.TrTextContent("Max Distance"));
 
             Unit unit;
@@ -120,7 +134,7 @@ namespace URP_Extension.Editor.VolumeEditor
                 {
                     cascadeCount = m_CascadeShadowSplitCount.value.intValue;
                     splitCount = cascadeCount - 1;
-                    string[] cascadeOrder = { "first", "second", "third" ,"forth","fifth","sixth","seventh"};
+                    string[] cascadeOrder = { "first", "second", "third", "forth", "fifth", "sixth", "seventh" };
 
                     for (int i = 0; i < cascadeCount - 1; i++)
                     {

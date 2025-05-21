@@ -1,10 +1,9 @@
 ﻿using System;
-using Features.AmbientOcclusion.XeGTAO;
 using Features.Shadow.ScreenSpaceShadow.PCSSShadow;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Features.Shadow
+namespace Features.Shadow.ShadowCommon
 {
     public enum ShadowAlgo
     {
@@ -83,11 +82,14 @@ namespace Features.Shadow
         }
     }
 
-    public sealed partial class Shadows : VolumeComponent, IPostProcessComponent
-    {
-        public ShadowAlgoParameter shadowAlgo = new ShadowAlgoParameter(ShadowAlgo.URP, false);
 
-        [Tooltip("Shadow intensity.")] public ClampedFloatParameter intensity = new ClampedFloatParameter(1.0f, 0.0f, 1.0f);
+    public sealed class Shadows : VolumeComponent, IPostProcessComponent
+    {
+        public BoolParameter enable = new BoolParameter(false, BoolParameter.DisplayType.EnumPopup);
+
+        public ShadowAlgoParameter shadowAlgo = new ShadowAlgoParameter(ShadowAlgo.URP, true);
+
+        [Tooltip("Shadow intensity.")] public ClampedFloatParameter intensity = new ClampedFloatParameter(0.5f, 0.0f, 1.0f);
 
 
         [Header("Cascade Shadow")] public NoInterpMinFloatParameter maxShadowDistance = new NoInterpMinFloatParameter(150.0f, 0.0f);
@@ -103,10 +105,7 @@ namespace Features.Shadow
         public NoInterpMinFloatParameter cascadeBorder = new NoInterpMinFloatParameter(0.2f, 0.0f);
 
 
-        [Header("PCSS")] 
-        
-
-        [Tooltip("Penumbra controls shadows soften width.")]
+        [Header("PCSS")] [Tooltip("Penumbra controls shadows soften width.")]
         public ClampedFloatParameter penumbra = new ClampedFloatParameter(1.0f, 0.001f, 3.0f);
 
         [Tooltip("Shadow ramp texture.")] public NoInterpTextureParameter shadowRampTex = new NoInterpTextureParameter(s_DefaultShadowRampTex);
@@ -131,7 +130,7 @@ namespace Features.Shadow
 
 
         /// <inheritdoc/>
-        public bool IsActive() => true; // Always enable screenSpaceShadows.
+        public bool IsActive() => enable.value; // Always enable screenSpaceShadows.
 
 
         #region Private
@@ -143,6 +142,7 @@ namespace Features.Shadow
                 var runtimeTextures = GraphicsSettings.GetRenderPipelineSettings<ShadowRuntimeResource>();
                 s_DefaultShadowRampTex = runtimeTextures?.defaultDirShadowRampTex;
             }
+            base.OnEnable();
         }
 
 
@@ -163,7 +163,6 @@ namespace Features.Shadow
 
         public Shadows()
         {
-            
             cascadeShadowSplit0.Init(cascadeShadowSplitCount, 2, maxShadowDistance, null, cascadeShadowSplit1);
             cascadeShadowSplit1.Init(cascadeShadowSplitCount, 3, maxShadowDistance, cascadeShadowSplit0, cascadeShadowSplit2);
             cascadeShadowSplit2.Init(cascadeShadowSplitCount, 4, maxShadowDistance, cascadeShadowSplit1, cascadeShadowSplit3);
@@ -171,7 +170,6 @@ namespace Features.Shadow
             cascadeShadowSplit4.Init(cascadeShadowSplitCount, 6, maxShadowDistance, cascadeShadowSplit3, cascadeShadowSplit5);
             cascadeShadowSplit5.Init(cascadeShadowSplitCount, 7, maxShadowDistance, cascadeShadowSplit4, cascadeShadowSplit6);
             cascadeShadowSplit6.Init(cascadeShadowSplitCount, 8, maxShadowDistance, cascadeShadowSplit5, null);
-
         }
 
         #endregion

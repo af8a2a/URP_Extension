@@ -1,5 +1,7 @@
 ﻿using System;
+using Features.Shadow.CascadeShadow;
 using Features.Shadow.ScreenSpaceShadow.URPShadow;
+using Features.Shadow.ShadowCommon;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -14,7 +16,7 @@ namespace Features.Shadow.ScreenSpaceShadow
     {
     }
 
-    [SupportedOnRenderer(typeof(UniversalRendererData))]
+
     [DisallowMultipleRendererFeature("Custom Screen Space Shadows")]
     public class CustomScreenSpaceShadowsFeature : ScriptableRendererFeature
     {
@@ -27,7 +29,7 @@ namespace Features.Shadow.ScreenSpaceShadow
 
         private URPScreenSpaceShadowsPass m_SSShadowsPass = null;
         private ScreenSpaceShadowsPostPass m_SSShadowsPostPass = null;
-
+        private CascadeShadowCaster m_cascadeShadowCaster = null;
 
         /// <inheritdoc/>
         public override void Create()
@@ -37,10 +39,12 @@ namespace Features.Shadow.ScreenSpaceShadow
             if (m_SSShadowsPostPass == null)
                 m_SSShadowsPostPass = new ScreenSpaceShadowsPostPass();
 
+            m_cascadeShadowCaster = new CascadeShadowCaster(RenderPassEvent.BeforeRenderingShadows);
+
             m_SSShadowsPass.renderPassEvent = RenderPassEvent.AfterRenderingGbuffer;
             m_SSShadowsPostPass.renderPassEvent = RenderPassEvent.BeforeRenderingTransparents;
         }
-
+        
 
         /// <inheritdoc/>
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
@@ -48,12 +52,12 @@ namespace Features.Shadow.ScreenSpaceShadow
             if (UniversalRenderer.IsOffscreenDepthTexture(ref renderingData.cameraData))
                 return;
 
-
-            var shadowSettings = VolumeManager.instance.stack.GetComponent<Shadows>();
+            var stack = VolumeManager.instance.stack;
+            var shadowSettings = stack.GetComponent<Shadows>();
 
 
             var algo = ShadowAlgo.URP;
-            bool overrideSetting = !(shadowSettings is null || !shadowSettings.IsActive());
+            bool overrideSetting = (shadowSettings is not null && shadowSettings.IsActive());
 
             if (overrideSetting)
             {
@@ -84,6 +88,19 @@ namespace Features.Shadow.ScreenSpaceShadow
                     break;
                 case ShadowAlgo.CSM8:
 
+                    m_SSShadowsPass.Setup(m_Settings);
+
+                    m_SSShadowsPass.renderPassEvent = usesDeferredLighting
+                        ? RenderPassEvent.AfterRenderingGbuffer
+                        : RenderPassEvent.AfterRenderingPrePasses +
+                          1; // We add 1 to ensure this happens after depth priming depth copy pass that might be scheduled
+
+                    if (m_cascadeShadowCaster.Setup(ref renderingData))
+                    {
+                        renderer.EnqueuePass(m_cascadeShadowCaster);
+                    }
+
+                    renderer.EnqueuePass(m_SSShadowsPass);
                     renderer.EnqueuePass(m_SSShadowsPostPass);
                     break;
                 default:

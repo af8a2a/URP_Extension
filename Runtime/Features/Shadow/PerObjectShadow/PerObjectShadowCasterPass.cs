@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Features.Shadow.ShadowCommon;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;

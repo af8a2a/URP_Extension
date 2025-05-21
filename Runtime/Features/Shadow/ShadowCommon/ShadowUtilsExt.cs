@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using Unity.Mathematics;
+using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
@@ -22,86 +23,133 @@ namespace Features.Shadow
         }
 
 
-        static Vector3 s_camCenter = Vector3.zero;
-        static Vector3 s_TR_Dir = Vector3.zero;
-
-        public static bool ComputeDirectionalShadowMatricesAndCullingSphere
-        (ref UniversalCameraData cameraData, ref UniversalShadowData shadowData, int cascadeIndex, Light light, int shadowResolution
-            , out Vector4 cullingSphere, out Matrix4x4 viewMatrix, out Matrix4x4 projMatrix, out float ZDistance)
+        public static bool CalculateDirectionalLightShadowSliceData(
+            UniversalLightData lightData,
+            UniversalCameraData cameraData,
+            UniversalShadowData shadowData,
+            int cascadeIndex, int shadowResolution, int shadowLightIndex, out ShadowSliceData shadowSliceData)
         {
-            var camNear = 0f;
-            var s_BL_Dir = Vector3.zero;
-            if (cascadeIndex == 0)
+            shadowSliceData = default;
+            // 阴影切片的尺寸
+            float delta = 0;
+            Light mainLight = lightData.visibleLights[shadowLightIndex].light;
+            Camera mainCamera = cameraData.camera;
+            if (mainCamera == null)
             {
-                camNear = cameraData.camera.nearClipPlane;
-                Matrix4x4 VP = cameraData.GetProjectionMatrix() * cameraData.GetViewMatrix();
-                Matrix4x4 I_VP = VP.inverse;
-
-                Vector3 nearBL = I_VP.MultiplyPoint(new Vector3(-1, -1, -1));
-                Vector3 nearTR = I_VP.MultiplyPoint(new Vector3(1, 1, -1));
-
-                s_camCenter = cameraData.camera.transform.position;
-                s_BL_Dir = nearBL - s_camCenter;
-                s_TR_Dir = nearTR - s_camCenter;
+                Debug.LogWarning("没有主相机");
+                return false;
             }
 
+            // 初始化球形包围体参数
+            Vector4 cullingSphere = Vector4.zero;
+            Vector3 sphereCenter = Vector3.zero;
+            float sphereRadius = 0;
+            float nearPlane = mainCamera.nearClipPlane;
+            float farPlane = mainCamera.farClipPlane;
+            float shadowMaxDistance = Mathf.Min(farPlane, UniversalRenderPipeline.asset.shadowDistance);
+            farPlane = shadowMaxDistance;
 
-
-            float cascadeFar = camNear + cameraData.maxShadowDistance * shadowData.mainLightShadowCascadesSplitArray[cascadeIndex];
-            float cascadeNear = camNear;
-            if (cascadeIndex > 0)
+            // 根据级联索引设置近裁剪面和远裁剪面
+            switch (cascadeIndex)
             {
-                cascadeNear = camNear + cameraData.maxShadowDistance * shadowData.mainLightShadowCascadesSplitArray[cascadeIndex - 1];
+                case 0:
+                    break;
+                case 1:
+                    nearPlane = shadowData.mainLightShadowCascadesSplit[0] * shadowMaxDistance;
+                    break;
+                case 2:
+                    nearPlane = shadowData.mainLightShadowCascadesSplit[1] * shadowMaxDistance;
+                    break;
+                case 3:
+                    nearPlane = shadowData.mainLightShadowCascadesSplit[2] * shadowMaxDistance;
+                    break;
+                case 4:
+                    nearPlane = shadowData.mainLightShadowCascadesSplit2[0] * shadowMaxDistance;
+                    break;
+                case 5:
+                    nearPlane = shadowData.mainLightShadowCascadesSplit2[1] * shadowMaxDistance;
+                    break;
+                case 6:
+                    nearPlane = shadowData.mainLightShadowCascadesSplit2[2] * shadowMaxDistance;
+                    break;
+                case 7:
+                    nearPlane = shadowData.mainLightShadowCascadesSplit2[3] * shadowMaxDistance;
+                    break;
             }
 
-            Vector3 cascadeNearBL = s_camCenter + s_BL_Dir / camNear * cascadeNear;
-            Vector3 cascadeNearTR = s_camCenter + s_TR_Dir / camNear * cascadeNear;
-
-            Vector3 cascadeFarBL = s_camCenter + s_BL_Dir / camNear * cascadeFar;
-            Vector3 cascadeFarTR = s_camCenter + s_TR_Dir / camNear * cascadeFar;
-
-            //sphere bounding box
-            float a = Vector3.Distance(cascadeNearBL, cascadeNearTR);
-            float b = Vector3.Distance(cascadeFarBL, cascadeFarTR);
-            float l = cascadeFar - cascadeNear;
-
-            float x = (b * b - a * a) / (8 * l) + l / 2;
-
-            Vector3 sphereCenter = cameraData.camera.transform.position + cameraData.camera.transform.forward * (cascadeNear + x);
-            float sphereR = Mathf.Sqrt(x * x + a * a / 4);
-
-            //Anti-Shimmering
-            if (cascadeIndex < 4)
+            if (cascadeIndex < shadowData.mainLightShadowCascadesCount - 1)
             {
-                float squrePixelWidth = 2 * sphereR / shadowResolution;
-                Vector3 sphereCenterLS = light.transform.worldToLocalMatrix.MultiplyPoint(sphereCenter);
-                sphereCenterLS.x /= squrePixelWidth;
-                sphereCenterLS.x = Mathf.Floor(sphereCenterLS.x);
-                sphereCenterLS.x *= squrePixelWidth;
-                sphereCenterLS.y /= squrePixelWidth;
-                sphereCenterLS.y = Mathf.Floor(sphereCenterLS.y);
-                sphereCenterLS.y *= squrePixelWidth;
-                sphereCenter = light.transform.localToWorldMatrix.MultiplyPoint(sphereCenterLS);
+                if (cascadeIndex < 3)
+                {
+                    farPlane = shadowData.mainLightShadowCascadesSplit[cascadeIndex] * shadowMaxDistance;
+                }
+                else if (cascadeIndex < 7)
+                {
+                    int index = cascadeIndex - 3;
+                    farPlane = shadowData.mainLightShadowCascadesSplit2[index] * shadowMaxDistance;
+                }
             }
 
+            // 计算相机视锥体的宽高比和对角线长度
+            float cameraWidth = Mathf.Tan(Mathf.Deg2Rad * mainCamera.fieldOfView / 2) * nearPlane * 2;
+            float cameraHeight = cameraWidth * Screen.width / Screen.height;
+            float k = Mathf.Sqrt(1 + (cameraHeight * cameraHeight) / (cameraWidth * cameraWidth)) * Mathf.Tan(mainCamera.fieldOfView * Mathf.Deg2Rad / 2);
+            float k2 = k * k;
 
-            cullingSphere.x = sphereCenter.x;
-            cullingSphere.y = sphereCenter.y;
-            cullingSphere.z = sphereCenter.z;
-            cullingSphere.w = sphereR;
+            // 根据视锥体参数计算球形包围体的中心点和半径
+            if (k2 >= (farPlane - nearPlane) / (farPlane + nearPlane))
+            {
+                sphereCenter = farPlane * mainCamera.transform.forward + mainCamera.transform.position;
+                sphereRadius = farPlane * k;
+            }
+            else
+            {
+                sphereCenter = 0.5f * (farPlane + nearPlane) * (1 + k2) * mainCamera.transform.forward + mainCamera.transform.position;
+                sphereRadius = 0.5f * Mathf.Sqrt((farPlane - nearPlane) * (farPlane - nearPlane) + 2 * (farPlane * farPlane + nearPlane * nearPlane) * k2 +
+                                                 (farPlane + nearPlane) * (farPlane + nearPlane) * k2 * k2);
+            }
 
-            float backDistance = sphereR * light.shadowNearPlane * 10;
-            Vector3 shadowMapEye = sphereCenter - light.transform.forward * backDistance;
-            Vector3 shadowMapAt = sphereCenter;
+            // 减少阴影贴图中的抖动
+            delta = 2.0f * sphereRadius / shadowResolution;
+            Vector3 sphereCenterSnappedOS = mainLight.transform.worldToLocalMatrix.MultiplyVector(sphereCenter);
+            sphereCenterSnappedOS.x /= delta;
+            sphereCenterSnappedOS.x = Mathf.Floor(sphereCenterSnappedOS.x);
+            sphereCenterSnappedOS.x *= delta;
+            sphereCenterSnappedOS.y /= delta;
+            sphereCenterSnappedOS.y = Mathf.Floor(sphereCenterSnappedOS.y);
+            sphereCenterSnappedOS.y *= delta;
+            sphereCenter = mainLight.transform.localToWorldMatrix.MultiplyVector(sphereCenterSnappedOS);
 
-            Matrix4x4 lookMatrix = Matrix4x4.LookAt(shadowMapEye, shadowMapAt, light.transform.up);
-            // Matrix that mirrors along Z axis, to match the camera space convention.
-            Matrix4x4 scaleMatrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(1, 1, -1));
-            // Final view matrix is inverse of the LookAt matrix, and then mirrored along Z.
-            viewMatrix = scaleMatrix * lookMatrix.inverse;
+            // 构建观察矩阵
+            Matrix4x4 viewMatrix = Matrix4x4.identity;
+            viewMatrix.m00 = mainLight.transform.right.x;
+            viewMatrix.m01 = mainLight.transform.right.y;
+            viewMatrix.m02 = mainLight.transform.right.z;
+            viewMatrix.m10 = mainLight.transform.up.x;
+            viewMatrix.m11 = mainLight.transform.up.y;
+            viewMatrix.m12 = mainLight.transform.up.z;
+            viewMatrix.m20 = -mainLight.transform.forward.x;
+            viewMatrix.m21 = -mainLight.transform.forward.y;
+            viewMatrix.m22 = -mainLight.transform.forward.z;
+            viewMatrix.m03 = -Vector3.Dot(mainLight.transform.right, sphereCenter);
+            viewMatrix.m13 = -Vector3.Dot(mainLight.transform.up, sphereCenter);
+            viewMatrix.m23 = Vector3.Dot(mainLight.transform.forward, sphereCenter);
 
-            projMatrix = Matrix4x4.Ortho(-sphereR, sphereR, -sphereR, sphereR, 0.0f, 2.0f * backDistance);
-            ZDistance = 2.0f * backDistance;
+            // 构建投影矩阵
+            Matrix4x4 projectionMatrix = Matrix4x4.identity;
+            projectionMatrix.m00 = 1.0f / sphereRadius;
+            projectionMatrix.m11 = 1.0f / sphereRadius;
+            projectionMatrix.m22 = -2.0f / (sphereRadius - (-sphereRadius));
+            projectionMatrix.m23 = -(sphereRadius + (-sphereRadius)) / (sphereRadius - (-sphereRadius));
+            projectionMatrix.m33 = 1;
+
+            // 设置球形包围体数据
+            cullingSphere = new Vector4(sphereCenter.x, sphereCenter.y, sphereCenter.z, sphereRadius);
+
+            // 更新阴影切片数据
+            shadowSliceData.viewMatrix = viewMatrix;
+            shadowSliceData.projectionMatrix = projectionMatrix;
+            shadowSliceData.splitData.cullingSphere = cullingSphere;
 
             return true;
         }
