@@ -463,7 +463,6 @@ namespace Features.Shadow.CascadeShadow
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
         {
             var resourcesData = frameData.Get<UniversalResourceData>();
-
             resourcesData.mainShadowsTexture = Render(renderGraph, frameData);
         }
     };

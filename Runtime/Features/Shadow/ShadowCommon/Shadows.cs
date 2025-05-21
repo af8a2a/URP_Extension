@@ -5,10 +5,10 @@ using UnityEngine.Rendering;
 
 namespace Features.Shadow.ShadowCommon
 {
-    public enum ShadowAlgo
+    public enum MainLightShadowAlgo
     {
-        URP = 0, //default
-        CSM8,
+        URP = 0, //default URP CSM
+        TODO,
     }
 
 
@@ -29,9 +29,9 @@ namespace Features.Shadow.ShadowCommon
 
 
     [Serializable]
-    public sealed class ShadowAlgoParameter : VolumeParameter<ShadowAlgo>
+    public sealed class ShadowAlgoParameter : VolumeParameter<MainLightShadowAlgo>
     {
-        public ShadowAlgoParameter(ShadowAlgo value, bool overrideState = false) : base(value, overrideState)
+        public ShadowAlgoParameter(MainLightShadowAlgo value, bool overrideState = false) : base(value, overrideState)
         {
         }
     }
@@ -87,12 +87,13 @@ namespace Features.Shadow.ShadowCommon
     {
         public BoolParameter enable = new BoolParameter(false, BoolParameter.DisplayType.EnumPopup);
 
-        public ShadowAlgoParameter shadowAlgo = new ShadowAlgoParameter(ShadowAlgo.URP, true);
+        public ShadowAlgoParameter shadowAlgo = new ShadowAlgoParameter(MainLightShadowAlgo.URP, true);
 
         [Tooltip("Shadow intensity.")] public ClampedFloatParameter intensity = new ClampedFloatParameter(0.5f, 0.0f, 1.0f);
 
+        #region Cascade Shadow
 
-        [Header("Cascade Shadow")] public NoInterpMinFloatParameter maxShadowDistance = new NoInterpMinFloatParameter(150.0f, 0.0f);
+        public NoInterpMinFloatParameter maxShadowDistance = new NoInterpMinFloatParameter(150.0f, 0.0f);
         public NoInterpClampedIntParameter cascadeShadowSplitCount = new NoInterpClampedIntParameter(4, 1, 8);
         public CascadePartitionSplitParameter cascadeShadowSplit0 = new CascadePartitionSplitParameter(0.05f);
         public CascadePartitionSplitParameter cascadeShadowSplit1 = new CascadePartitionSplitParameter(0.1f);
@@ -104,8 +105,12 @@ namespace Features.Shadow.ShadowCommon
 
         public NoInterpMinFloatParameter cascadeBorder = new NoInterpMinFloatParameter(0.2f, 0.0f);
 
+        #endregion
 
-        [Header("PCSS")] [Tooltip("Penumbra controls shadows soften width.")]
+
+        #region PCSS
+
+        [Tooltip("Penumbra controls shadows soften width.")]
         public ClampedFloatParameter penumbra = new ClampedFloatParameter(1.0f, 0.001f, 3.0f);
 
         [Tooltip("Shadow ramp texture.")] public NoInterpTextureParameter shadowRampTex = new NoInterpTextureParameter(s_DefaultShadowRampTex);
@@ -127,6 +132,9 @@ namespace Features.Shadow.ShadowCommon
 
         [Header("PerObjectShadow")] [Tooltip("Penumbra controls shadows soften width. (For Per Object Shadow)")]
         public ClampedFloatParameter perObjectShadowPenumbra = new ClampedFloatParameter(1.0f, 0.001f, 3.0f);
+
+        #endregion
+       
 
 
         /// <inheritdoc/>

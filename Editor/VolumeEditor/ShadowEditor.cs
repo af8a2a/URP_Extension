@@ -88,11 +88,13 @@ namespace URP_Extension.Editor.VolumeEditor
 
         public override void OnInspectorGUI()
         {
-            
             PropertyField(m_Enable, EditorGUIUtility.TrTextContent("Shadow Enable"));
 
             PropertyField(m_ShadowsAlgo, EditorGUIUtility.TrTextContent("Shadow Algo"));
             PropertyField(m_ShadowsIntensity, EditorGUIUtility.TrTextContent("Shadow Intensity"));
+
+            
+#if false
 
             PropertyField(m_MaxShadowDistance, EditorGUIUtility.TrTextContent("Max Distance"));
 
@@ -113,7 +115,7 @@ namespace URP_Extension.Editor.VolumeEditor
 
                 EditorGUIUtility.labelWidth += 3;
             }
-
+            
             PropertyField(m_CascadeShadowSplitCount, EditorGUIUtility.TrTextContent("Cascade Count"));
 
             if (EditorGUI.EndChangeCheck())
@@ -178,20 +180,23 @@ namespace URP_Extension.Editor.VolumeEditor
                 GUILayout.Label("Cascade splits");
 
                 DrawShadowCascades(cascadeCount, unit == Unit.Metric, m_MaxShadowDistance.value.floatValue);
-
-                GUILayout.Label("PCSS");
-                PropertyField(m_Penumbra, EditorGUIUtility.TrTextContent("Penumbra"));
-
-                GUILayout.Label("Shadow Scatter");
-                PropertyField(m_ShadowScatterMode, EditorGUIUtility.TrTextContent("ShadowScatterMode"));
-                PropertyField(m_ShadowRampTex, EditorGUIUtility.TrTextContent("ShadowRampTex"));
-                // PropertyField(m_OcclusionPenumbra, EditorGUIUtility.TrTextContent("OcclusionPenumbra"));
-                PropertyField(m_ScatterR, EditorGUIUtility.TrTextContent("ScatterR"));
-                PropertyField(m_ScatterG, EditorGUIUtility.TrTextContent("ScatterG"));
-                PropertyField(m_ScatterB, EditorGUIUtility.TrTextContent("ScatterB"));
-                // PropertyField(m_ShadowACES, EditorGUIUtility.TrTextContent("ShadowACES"));
             }
+#endif
+            GUILayout.Label("PCSS");
+            PropertyField(m_Penumbra, EditorGUIUtility.TrTextContent("Penumbra"));
+
+            GUILayout.Label("Shadow Scatter");
+            PropertyField(m_ShadowScatterMode, EditorGUIUtility.TrTextContent("ShadowScatterMode"));
+            PropertyField(m_ShadowRampTex, EditorGUIUtility.TrTextContent("ShadowRampTex"));
+            // PropertyField(m_OcclusionPenumbra, EditorGUIUtility.TrTextContent("OcclusionPenumbra"));
+            PropertyField(m_ScatterR, EditorGUIUtility.TrTextContent("ScatterR"));
+            PropertyField(m_ScatterG, EditorGUIUtility.TrTextContent("ScatterG"));
+            PropertyField(m_ScatterB, EditorGUIUtility.TrTextContent("ScatterB"));
         }
+
+
+        #region Cascade Editor Extension
+    //preserved for cascade extend...
 
         private void DrawShadowCascades(int cascadeCount, bool useMetric, float baseMetric)
         {
@@ -262,5 +267,7 @@ namespace URP_Extension.Editor.VolumeEditor
                 return true;
             }
         }
+
+        #endregion
     }
 }

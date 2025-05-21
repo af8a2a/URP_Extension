@@ -3,6 +3,7 @@ using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
+using ScreenSpaceShadowsSettings = Features.Shadow.UberScreenSpaceShadow.ScreenSpaceShadowsSettings;
 
 namespace Features.Shadow.ScreenSpaceShadow.URPShadow
 {
