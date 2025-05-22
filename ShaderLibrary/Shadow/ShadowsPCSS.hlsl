@@ -3,7 +3,7 @@
 
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Shadow/ShadowSamplingDisk.hlsl"
-
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
 
 CBUFFER_START(PCSSData)
     float4 _PerCascadePCSSData[MAX_SHADOW_CASCADES];
@@ -57,8 +57,8 @@ float PreFilterSearch(float sampleCount, float filterSize, float3 shadowCoord, f
         float zoffset = radialOffset / farToNear * blockerInvTangent;
 
         float depthLS = shadowCoord.z + (Z_OFFSET_DIRECTION) * zoffset;
-    
-        float shadowMapDepth = SAMPLE_TEXTURE2D_ARRAY_LOD(_DirectionalLightsShadowmapTexture, sampler_PointClamp, sampleCoord, cascadeIndex, 0).x;
+
+        float shadowMapDepth = SAMPLE_TEXTURE2D_ARRAY_LOD(_MainLightShadowmapTexture, sampler_PointClamp, sampleCoord, cascadeIndex, 0).x;
 
         bool isOutOfCoord = any(sampleCoord < minCoord) || any(sampleCoord > maxCoord);
         if (!isOutOfCoord && COMPARE_DEVICE_DEPTH_CLOSER(shadowMapDepth, depthLS))
@@ -79,8 +79,8 @@ float PreFilterSearch(float sampleCount, float filterSize, float3 shadowCoord, f
     }
 
     // We must cover zero offset.
-    
-    float shadowMapDepth = SAMPLE_TEXTURE2D_ARRAY_LOD(_DirectionalLightsShadowmapTexture, sampler_PointClamp, shadowCoord.xy, cascadeIndex, 0).x;
+
+    float shadowMapDepth = SAMPLE_TEXTURE2D_ARRAY_LOD(_MainLightShadowmapTexture, sampler_PointClamp, shadowCoord.xy, cascadeIndex, 0).x;
     if (!(any(shadowCoord.xy < minCoord) || any(shadowCoord.xy > maxCoord)) &&
         COMPARE_DEVICE_DEPTH_CLOSER(shadowMapDepth, shadowCoord.z))
     {
@@ -88,6 +88,14 @@ float PreFilterSearch(float sampleCount, float filterSize, float3 shadowCoord, f
     }
 
     return numBlockers;
+}
+
+
+float2 CustomComputeFibonacciSpiralDiskSample(const in int sampleIndex, const in float sampleCountInverse, const in float sampleBias, out float sampleRadius)
+{
+    sampleRadius = sqrt((float)sampleIndex * sampleCountInverse + sampleBias);
+    float2 sampleDirection = fibonacciSpiralDirection[sampleIndex];
+    return sampleDirection * sampleRadius;
 }
 
 
@@ -112,7 +120,7 @@ float2 BlockerSearch(float sampleCount, float filterSize, float3 shadowCoord, fl
     {
         float sampleDistNorm;
         float2 offset = 0.0;
-        offset = ComputeFibonacciSpiralDiskSampleUniform_Directional(i, sampleCountInverse, sampleCountBias, sampleDistNorm);
+        offset = CustomComputeFibonacciSpiralDiskSample(i, sampleCountInverse, sampleCountBias, sampleDistNorm);
         offset = float2(offset.x * random.y + offset.y * random.x,
                         offset.x * -random.x + offset.y * random.y);
         offset *= filterSize;
@@ -125,7 +133,7 @@ float2 BlockerSearch(float sampleCount, float filterSize, float3 shadowCoord, fl
 
         float depthLS = shadowCoord.z + (Z_OFFSET_DIRECTION) * zoffset;
 
-        float shadowMapDepth = SAMPLE_TEXTURE2D_ARRAY_LOD(_DirectionalLightsShadowmapTexture, sampler_PointClamp, sampleCoord, cascadeIndex, 0).x;
+        float shadowMapDepth = SAMPLE_TEXTURE2D_ARRAY_LOD(_MainLightShadowmapTexture, sampler_PointClamp, sampleCoord, cascadeIndex, 0).x;
         if (!(any(sampleCoord < minCoord) || any(sampleCoord > maxCoord)) &&
             COMPARE_DEVICE_DEPTH_CLOSER(shadowMapDepth, depthLS))
         {
@@ -162,7 +170,7 @@ float PCSSFilter(float sampleCount, float filterSize, float3 shadowCoord, float2
     {
         float sampleDistNorm;
         float2 offset = 0.0;
-        offset = ComputeFibonacciSpiralDiskSampleUniform_Directional(i, sampleCountInverse, sampleCountBias, sampleDistNorm);
+        offset = CustomComputeFibonacciSpiralDiskSample(i, sampleCountInverse, sampleCountBias, sampleDistNorm);
         offset = float2(offset.x * random.y + offset.y * random.x,
                         offset.x * -random.x + offset.y * random.y);
         offset *= filterSize;
@@ -177,7 +185,7 @@ float PCSSFilter(float sampleCount, float filterSize, float3 shadowCoord, float2
 
         if (!(any(sampleCoord < minCoord) || any(sampleCoord > maxCoord)))
         {
-            float shadowSample = SAMPLE_TEXTURE2D_ARRAY_SHADOW(_DirectionalLightsShadowmapTexture, sampler_LinearClampCompare, float3(sampleCoord, depthLS),
+            float shadowSample = SAMPLE_TEXTURE2D_ARRAY_SHADOW(_MainLightShadowmapTexture, sampler_LinearClampCompare, float3(sampleCoord, depthLS),
                                                                cascadeIndex).x;
             numBlockers += shadowSample;
             totalSamples++;
@@ -186,6 +194,53 @@ float PCSSFilter(float sampleCount, float filterSize, float3 shadowCoord, float2
 
     return totalSamples > 0 ? numBlockers / totalSamples : 1.0;
 }
+
+
+// World space filter size.
+#define FILTER_SIZE_PREFILTER           (0.3)
+#define FILTER_SIZE_BLOCKER             (0.2)
+#define PREFILTER_SAMPLE_COUNT          (32)
+#define BLOCKER_SAMPLE_COUNT            (16)
+#define PCSS_SAMPLE_COUNT               (32)
+#define DIR_LIGHT_PENUMBRA_WIDTH        _DirLightShadowPenumbraParams.x
+
+
+
+float MainLightRealtimeShadow_PCSS(float3 positionWS, float4 shadowCoord, float2 screenUV)
+{
+    float cascadeIndex = ComputeCascadeIndex(positionWS);
+    
+    float radial2ShadowmapDepth = _PerCascadePCSSData[cascadeIndex].x;
+    float texelSizeWS           = _PerCascadePCSSData[cascadeIndex].y;
+    float farToNear             = _PerCascadePCSSData[cascadeIndex].z;
+    float blockerInvTangent     = _PerCascadePCSSData[cascadeIndex].w;
+    
+    // Sample Noise: Use Jitter Instead
+    float sampleJitterAngle = InterleavedGradientNoise(screenUV * _ScreenSize.xy, _Time.y) * TWO_PI;
+    float2 noiseJitter = float2(sin(sampleJitterAngle), cos(sampleJitterAngle));
+    
+    // Blocker Search
+    float filterSize = FILTER_SIZE_BLOCKER / texelSizeWS;
+    filterSize = max(filterSize, 1.0);
+    float2 avgDepthAndCount = BlockerSearch(BLOCKER_SAMPLE_COUNT, filterSize, shadowCoord.xyz, noiseJitter, cascadeIndex);
+    if (avgDepthAndCount.y == 0) return 1.0;
+    
+    // Penumbra Estimation
+    float blockerDistance = abs(avgDepthAndCount.x - shadowCoord.z);
+    blockerDistance *= farToNear;
+    blockerDistance = min(blockerDistance, 10.0);
+    
+    float pcssFilterSize = DIR_LIGHT_PENUMBRA_WIDTH * blockerDistance * 0.01 / texelSizeWS;
+    pcssFilterSize = max(pcssFilterSize, 0.01);
+    
+    float maxPCSSoffset = blockerDistance / farToNear * 0.25;
+    float attenuation = PCSSFilter(PCSS_SAMPLE_COUNT, pcssFilterSize, shadowCoord.xyz, noiseJitter, cascadeIndex, maxPCSSoffset);
+
+    attenuation = LerpWhiteTo(attenuation, GetMainLightShadowParams().x);
+    return attenuation;
+}
+
+
 
 
 #endif /* SHADOWS_PCSS_INCLUDED */

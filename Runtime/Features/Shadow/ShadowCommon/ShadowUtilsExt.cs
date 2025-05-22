@@ -1,4 +1,5 @@
-﻿using Unity.Mathematics;
+﻿using Features.Shadow.ShadowCommon;
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -23,5 +24,12 @@ namespace Features.Shadow
         }
 
 
+        internal static void SetSoftShadowFilterShaderKeywords(RasterCommandBuffer cmd, Shadows shadows)
+        {
+            if (shadows.shadowAlgo.value is ShadowCommon.ShadowFilter.PCSS)
+            {
+                CoreUtils.SetKeyword(cmd, "PCSS", true);
+            }
+        }
     }
 }

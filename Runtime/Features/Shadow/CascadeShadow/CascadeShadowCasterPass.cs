@@ -1,3 +1,5 @@
+using Features.Shadow.ShadowCommon;
+using Features.Shadow.ShadowFilter;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
@@ -26,7 +28,7 @@ namespace Features.Shadow.CascadeShadow
         private readonly Matrix4x4[] m_MainLightShadowMatrices;
         private readonly ProfilingSampler m_ProfilingSetupSampler = new("Setup Main Shadowmap");
         private readonly ShadowSliceData[] m_CascadeSlices;
-
+        private Shadows shadowsSetting;
         // Constants and Statics
         private const int k_EmptyShadowMapDimensions = 1;
         private const int k_MaxCascades = 4;
@@ -195,6 +197,8 @@ namespace Features.Shadow.CascadeShadow
             m_CreateEmptyShadowmap = false;
             useNativeRenderPass = true;
 
+            shadowsSetting = VolumeManager.instance.stack.GetComponent<Shadows>();
+
             return true;
         }
 
@@ -298,8 +302,11 @@ namespace Features.Shadow.CascadeShadow
                 cmd.SetKeyword(ShaderGlobalKeywords.MainLightShadows, data.shadowData.mainLightShadowCascadesCount == 1);
                 cmd.SetKeyword(ShaderGlobalKeywords.MainLightShadowCascades, data.shadowData.mainLightShadowCascadesCount > 1);
                 ShadowUtils.SetSoftShadowQualityShaderKeywords(cmd, data.shadowData);
-
+                ShadowUtilsExt.SetSoftShadowFilterShaderKeywords(cmd,shadowsSetting);
                 SetupMainLightShadowReceiverConstants(cmd, ref shadowLight, data.shadowData);
+                
+                
+                PCSSFilterUtil.SetupPCSS(cmd,  data.lightData, data.shadowData,data.pass.shadowsSetting);
             }
         }
 
@@ -465,5 +472,12 @@ namespace Features.Shadow.CascadeShadow
             var resourcesData = frameData.Get<UniversalResourceData>();
             resourcesData.mainShadowsTexture = Render(renderGraph, frameData);
         }
+
+        public override void FrameCleanup(CommandBuffer cmd)
+        {
+            CoreUtils.SetKeyword(cmd,"PCSS",false);
+        }
     };
+    
+    
 }

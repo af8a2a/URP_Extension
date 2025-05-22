@@ -5,10 +5,10 @@ using UnityEngine.Rendering;
 
 namespace Features.Shadow.ShadowCommon
 {
-    public enum MainLightShadowAlgo
+    public enum ShadowFilter
     {
-        URP = 0, //default URP CSM
-        TODO,
+        PCF = 0, //default URP CSM
+        PCSS,
     }
 
 
@@ -29,9 +29,9 @@ namespace Features.Shadow.ShadowCommon
 
 
     [Serializable]
-    public sealed class ShadowAlgoParameter : VolumeParameter<MainLightShadowAlgo>
+    public sealed class ShadowAlgoParameter : VolumeParameter<ShadowFilter>
     {
-        public ShadowAlgoParameter(MainLightShadowAlgo value, bool overrideState = false) : base(value, overrideState)
+        public ShadowAlgoParameter(ShadowFilter value, bool overrideState = false) : base(value, overrideState)
         {
         }
     }
@@ -87,7 +87,7 @@ namespace Features.Shadow.ShadowCommon
     {
         public BoolParameter enable = new BoolParameter(false, BoolParameter.DisplayType.EnumPopup);
 
-        public ShadowAlgoParameter shadowAlgo = new ShadowAlgoParameter(MainLightShadowAlgo.URP, true);
+        public ShadowAlgoParameter shadowAlgo = new ShadowAlgoParameter(ShadowFilter.PCF, true);
 
         [Tooltip("Shadow intensity.")] public ClampedFloatParameter intensity = new ClampedFloatParameter(0.5f, 0.0f, 1.0f);
 

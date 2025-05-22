@@ -3,11 +3,10 @@ using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
-using ScreenSpaceShadowsSettings = Features.Shadow.UberScreenSpaceShadow.ScreenSpaceShadowsSettings;
 
-namespace Features.Shadow.ScreenSpaceShadow.URPShadow
+namespace Features.Shadow.UberScreenSpaceShadow
 {
-    public class URPScreenSpaceShadowsPass : ScriptableRenderPass
+    public class ScreenSpaceShadowsPass : ScriptableRenderPass
     {
         // Serialized Fields
         [SerializeField, HideInInspector] private Shader m_Shader = null;
@@ -22,7 +21,7 @@ namespace Features.Shadow.ScreenSpaceShadow.URPShadow
         private const string k_ShaderName = "Hidden/CustomScreenSpaceShadows";
 
 
-        internal URPScreenSpaceShadowsPass()
+        internal ScreenSpaceShadowsPass()
         {
             LoadMaterial();
 
