@@ -5,12 +5,6 @@
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Shadow/ShadowSamplingDisk.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
 
-CBUFFER_START(PCSSData)
-    float4 _PerCascadePCSSData[MAX_SHADOW_CASCADES];
-    float4 _DirLightShadowUVMinMax; // xy: shadow uv min, max: shadow uv max
-    float4 _DirLightShadowPenumbraParams; // x: soft shadow width, y: scatter occlusion width.
-    float4 _DirLightShadowScatterParams; // xyz: shadow subsurface scatter channel, w:shadow scatter mode.
-CBUFFER_END
 
 // Limitation:
 // Note that in cascade shadows, all occluders behind the near plane will get clamped to the near plane
@@ -58,7 +52,7 @@ float PreFilterSearch(float sampleCount, float filterSize, float3 shadowCoord, f
 
         float depthLS = shadowCoord.z + (Z_OFFSET_DIRECTION) * zoffset;
 
-        float shadowMapDepth = SAMPLE_TEXTURE2D_ARRAY_LOD(_MainLightShadowmapTexture, sampler_PointClamp, sampleCoord, cascadeIndex, 0).x;
+        float shadowMapDepth = SAMPLE_TEXTURE2D_LOD(_MainLightShadowmapTexture, sampler_PointClamp, sampleCoord, 0).x;
 
         bool isOutOfCoord = any(sampleCoord < minCoord) || any(sampleCoord > maxCoord);
         if (!isOutOfCoord && COMPARE_DEVICE_DEPTH_CLOSER(shadowMapDepth, depthLS))
@@ -80,7 +74,7 @@ float PreFilterSearch(float sampleCount, float filterSize, float3 shadowCoord, f
 
     // We must cover zero offset.
 
-    float shadowMapDepth = SAMPLE_TEXTURE2D_ARRAY_LOD(_MainLightShadowmapTexture, sampler_PointClamp, shadowCoord.xy, cascadeIndex, 0).x;
+    float shadowMapDepth = SAMPLE_TEXTURE2D_LOD(_MainLightShadowmapTexture, sampler_PointClamp, shadowCoord.xy, 0).x;
     if (!(any(shadowCoord.xy < minCoord) || any(shadowCoord.xy > maxCoord)) &&
         COMPARE_DEVICE_DEPTH_CLOSER(shadowMapDepth, shadowCoord.z))
     {
@@ -120,7 +114,7 @@ float2 BlockerSearch(float sampleCount, float filterSize, float3 shadowCoord, fl
     {
         float sampleDistNorm;
         float2 offset = 0.0;
-        offset = CustomComputeFibonacciSpiralDiskSample(i, sampleCountInverse, sampleCountBias, sampleDistNorm);
+        offset = ComputeFibonacciSpiralDiskSampleUniform_Directional(i, sampleCountInverse, sampleCountBias, sampleDistNorm);
         offset = float2(offset.x * random.y + offset.y * random.x,
                         offset.x * -random.x + offset.y * random.y);
         offset *= filterSize;
@@ -133,7 +127,7 @@ float2 BlockerSearch(float sampleCount, float filterSize, float3 shadowCoord, fl
 
         float depthLS = shadowCoord.z + (Z_OFFSET_DIRECTION) * zoffset;
 
-        float shadowMapDepth = SAMPLE_TEXTURE2D_ARRAY_LOD(_MainLightShadowmapTexture, sampler_PointClamp, sampleCoord, cascadeIndex, 0).x;
+        float shadowMapDepth = SAMPLE_TEXTURE2D_LOD(_MainLightShadowmapTexture, sampler_PointClamp, sampleCoord, 0).x;
         if (!(any(sampleCoord < minCoord) || any(sampleCoord > maxCoord)) &&
             COMPARE_DEVICE_DEPTH_CLOSER(shadowMapDepth, depthLS))
         {
@@ -185,8 +179,7 @@ float PCSSFilter(float sampleCount, float filterSize, float3 shadowCoord, float2
 
         if (!(any(sampleCoord < minCoord) || any(sampleCoord > maxCoord)))
         {
-            float shadowSample = SAMPLE_TEXTURE2D_ARRAY_SHADOW(_MainLightShadowmapTexture, sampler_LinearClampCompare, float3(sampleCoord, depthLS),
-                                                               cascadeIndex).x;
+            float shadowSample = SAMPLE_TEXTURE2D_SHADOW(_MainLightShadowmapTexture, sampler_LinearClampCompare, float3(sampleCoord, depthLS)).x;
             numBlockers += shadowSample;
             totalSamples++;
         }
@@ -235,8 +228,9 @@ float MainLightRealtimeShadow_PCSS(float3 positionWS, float4 shadowCoord, float2
     
     float maxPCSSoffset = blockerDistance / farToNear * 0.25;
     float attenuation = PCSSFilter(PCSS_SAMPLE_COUNT, pcssFilterSize, shadowCoord.xyz, noiseJitter, cascadeIndex, maxPCSSoffset);
-
-    attenuation = LerpWhiteTo(attenuation, GetMainLightShadowParams().x);
+    
+    if (!GetShadowScatterEnable())
+        attenuation = LerpWhiteTo(attenuation, GetMainLightShadowParams().x);
     return attenuation;
 }
 
