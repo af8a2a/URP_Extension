@@ -76,7 +76,7 @@ namespace Features.ColorPyramid
             // Blitter.BlitCameraTexture(cmd, data.input, data.output);
             //note:D3D11 Not support ResourcesBarrier
 
-            data.ColorPyramidData.MipCount = MipGenerator.MipGenerator.Instance.RenderColorGaussianPyramid(cmd,
+            data.ColorPyramidData.MipCount = MipmapGenerator.MipGenerator.Instance.RenderColorGaussianPyramid(cmd,
                 new Vector2Int(data.dimX,
                     data.dimY), data.input, data.output);
         }

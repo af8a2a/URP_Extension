@@ -45,19 +45,6 @@ Shader "ScreenSpaceReflection"
 
 			#pragma target 3.5
 			
-			CBUFFER_START(UnityPerMaterial)
-			half _Seed;
-			half _MinSmoothness;
-			half _FadeSmoothness;
-			half _EdgeFade;
-			half _Thickness;
-			half _StepSize;
-			half _StepSizeMultiplier;
-			half _MaxStep;
-			half _DownSample;
-			half _AccumulationFactor;
-			CBUFFER_END
-
 			#include "./ScreenSpaceReflection.hlsl"
 
 			half4 frag(Varyings input) : SV_Target
@@ -158,18 +145,6 @@ Shader "ScreenSpaceReflection"
 			// Color Pyramid
 			//#pragma require 2darray
 
-			CBUFFER_START(UnityPerMaterial)
-			half _Seed;
-			half _MinSmoothness;
-			half _FadeSmoothness;
-			half _EdgeFade;
-			half _Thickness;
-			half _StepSize;
-			half _StepSizeMultiplier;
-			half _MaxStep;
-			half _DownSample;
-			half _AccumulationFactor;
-			CBUFFER_END
 
 			#include "./ScreenSpaceReflection.hlsl"
 
@@ -235,19 +210,6 @@ Shader "ScreenSpaceReflection"
 			#define _SSR_ACCUM
 			
 			#pragma target 3.5
-			
-			CBUFFER_START(UnityPerMaterial)
-			half _Seed;
-			half _MinSmoothness;
-			half _FadeSmoothness;
-			half _EdgeFade;
-			half _Thickness;
-			half _StepSize;
-			half _StepSizeMultiplier;
-			half _MaxStep;
-			half _DownSample;
-			half _AccumulationFactor;
-			CBUFFER_END
 			
 			#include "./ScreenSpaceReflection.hlsl"
 			
@@ -337,31 +299,10 @@ Shader "ScreenSpaceReflection"
 			
 			#pragma target 3.5
 			
-			// Camera or Per Object motion vectors.
-			TEXTURE2D_X(_MotionVectorTexture);
-			float4 _MotionVectorTexture_TexelSize;
 			
-			// Previous frame reflection color
-			TEXTURE2D_X(_ScreenSpaceReflectionHistoryTexture);
 			
-			// Store hitUV.xy and fresnel.z
-			TEXTURE2D_X(_ScreenSpaceReflectionHitTexture);
-			
-			CBUFFER_START(UnityPerMaterial)
-			half _Seed;
-			half _MinSmoothness;
-			half _FadeSmoothness;
-			half _EdgeFade;
-			half _Thickness;
-			half _StepSize;
-			half _StepSizeMultiplier;
-			half _MaxStep;
-			half _DownSample;
-			half _AccumulationFactor;
-			CBUFFER_END
-			
-			#include "./ScreenSpaceReflection.hlsl"
-			#include "./TemporalAccumulation.hlsl"
+			#include "ScreenSpaceReflection.hlsl"
+			#include "TemporalAccumulation.hlsl"
 			
 			half4 frag(Varyings input) : SV_Target
 			{
@@ -428,28 +369,6 @@ Shader "ScreenSpaceReflection"
 			
 			#pragma target 3.5
 			
-			// Camera or Per Object motion vectors.
-			TEXTURE2D(_MotionVectorTexture);
-			float4 _MotionVectorTexture_TexelSize;
-			
-			// Previous frame reflection color
-			TEXTURE2D(_ScreenSpaceReflectionHistoryTexture);
-			
-			// Store hitUV.xy and fresnel.z
-			TEXTURE2D(_ScreenSpaceReflectionHitTexture);
-			
-			CBUFFER_START(UnityPerMaterial)
-			half _Seed;
-			half _MinSmoothness;
-			half _FadeSmoothness;
-			half _EdgeFade;
-			half _Thickness;
-			half _StepSize;
-			half _StepSizeMultiplier;
-			half _MaxStep;
-			half _DownSample;
-			half _AccumulationFactor;
-			CBUFFER_END
 			
 			#include "./ScreenSpaceReflection.hlsl"
 			#include "./TemporalAccumulation.hlsl"
@@ -480,7 +399,8 @@ Shader "ScreenSpaceReflection"
 					return half4(0.0, 0.0, 0.0, 0.0);
 				
 				// Color Variance
-				half3 colorCenter = SampleColorPoint(screenUV, float2(0.0, 0.0)).xyz;  // Point == Linear as uv == input pixel center.
+				half3 colorCenter = SampleColorPoint(_BlitTexture, screenUV, _BlitTexture_TexelSize, float2(0.0, 0.0)).xyz;
+				// Point == Linear as uv == input pixel center.
 				
 				half3 boxMax = colorCenter;
 				half3 boxMin = colorCenter;
@@ -488,10 +408,10 @@ Shader "ScreenSpaceReflection"
 				half3 moment2 = colorCenter * colorCenter;
 				
 				// adjacent pixels
-				AdjustColorBox(boxMin, boxMax, moment1, moment2, screenUV, 0.0, -1.0);
-				AdjustColorBox(boxMin, boxMax, moment1, moment2, screenUV, -1.0, 0.0);
-				AdjustColorBox(boxMin, boxMax, moment1, moment2, screenUV, 1.0, 0.0);
-				AdjustColorBox(boxMin, boxMax, moment1, moment2, screenUV, 0.0, 1.0);
+				AdjustColorBox(_BlitTexture,_BlitTexture_TexelSize,boxMin, boxMax, moment1, moment2, screenUV, 0.0, -1.0);
+				AdjustColorBox(_BlitTexture,_BlitTexture_TexelSize,boxMin, boxMax, moment1, moment2, screenUV, -1.0, 0.0);
+				AdjustColorBox(_BlitTexture,_BlitTexture_TexelSize,boxMin, boxMax, moment1, moment2, screenUV, 1.0, 0.0);
+				AdjustColorBox(_BlitTexture,_BlitTexture_TexelSize,boxMin, boxMax, moment1, moment2, screenUV, 0.0, 1.0);
 				
 				// Motion Vectors
 				half bestOffsetX = 0.0;
@@ -508,7 +428,7 @@ Shader "ScreenSpaceReflection"
 				*/
 				
 				half2 depthOffsetUv = half2(bestOffsetX, bestOffsetY);
-				half2 velocity = GetVelocityWithOffset(reflectUV, depthOffsetUv);
+				half2 velocity = GetVelocityWithOffset(reflectUV,_MotionVectorTexture_TexelSize, depthOffsetUv);
 				
 				float2 prevUV = screenUV + velocity;
 				

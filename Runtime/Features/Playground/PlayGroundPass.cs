@@ -1,10 +1,10 @@
 ﻿using Features.InterleavedTexture;
-using Features.MipGenerator;
+using Features.MipmapGenerator;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 
-namespace URP_Extension.Features.Playground
+namespace Features.Playground
 {
     public class PlayGroundPass : ScriptableRenderPass
     {

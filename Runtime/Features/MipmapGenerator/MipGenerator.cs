@@ -1,10 +1,9 @@
 ﻿using System;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 
-namespace Features.MipGenerator
+namespace Features.MipmapGenerator
 {
     //copy and modifed from HDRP
     public partial class MipGenerator

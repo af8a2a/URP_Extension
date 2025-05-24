@@ -2,7 +2,7 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace URP_Extension.Features.ScreenSpaceRaytracing
+namespace Features.ScreenSpaceRaytracing.ScreenSpaceReflection
 {
     public class ScreenSpaceReflection : VolumeComponent, IPostProcessComponent
     {

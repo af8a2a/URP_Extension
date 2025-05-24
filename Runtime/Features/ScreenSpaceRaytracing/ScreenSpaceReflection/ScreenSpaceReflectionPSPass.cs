@@ -3,7 +3,7 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 
-namespace URP_Extension.Features.ScreenSpaceRaytracing
+namespace Features.ScreenSpaceRaytracing.ScreenSpaceReflection
 {
     public class ScreenSpaceReflectionPass : ScriptableRenderPass
     {

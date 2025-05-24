@@ -3,18 +3,19 @@
 
 // From URP's "TemporalAA.hlsl"
 // Per-pixel camera backwards velocity
-half2 GetVelocityWithOffset(float2 uv, half2 depthOffsetUv)
+half2 GetVelocityWithOffset(float2 uv,float2 texelUnit, half2 depthOffsetUv)
 {
 	// Unity motion vectors are forward motion vectors in screen UV space
-	half2 offsetUv = SAMPLE_TEXTURE2D_X(_MotionVectorTexture, sampler_LinearClamp, uv + _MotionVectorTexture_TexelSize.xy * depthOffsetUv).xy;
+	half2 offsetUv =_MotionVectorTexture.SampleLevel(sampler_LinearClamp,uv + texelUnit * depthOffsetUv,0).xy;
+
 	return -offsetUv;
 }
 
-void AdjustBestDepthOffset(inout half bestDepth, inout half bestX, inout half bestY, float2 uv, half currX, half currY)
+void AdjustBestDepthOffset(inout half bestDepth, inout half bestX, inout half bestY, float2 uv,float2 texelUnit, half currX, half currY)
 {
 	// Half precision should be fine, as we are only concerned about choosing the better value along sharp edges, so it's
 	// acceptable to have banding on continuous surfaces
-	half depth = SAMPLE_TEXTURE2D_X(_CameraDepthTexture, my_point_clamp_sampler, uv.xy + _BlitTexture_TexelSize.xy * half2(currX, currY)).r;
+	half depth = SAMPLE_TEXTURE2D_X(_CameraDepthTexture, my_point_clamp_sampler, uv.xy + texelUnit * half2(currX, currY)).r;
 
 #if UNITY_REVERSED_Z
 	depth = 1.0 - depth;
@@ -26,14 +27,15 @@ void AdjustBestDepthOffset(inout half bestDepth, inout half bestX, inout half be
 	bestY = isBest ? currY : bestY;
 }
 
-half3 SampleColorPoint(float2 uv, float2 texelOffset)
+half3 SampleColorPoint(Texture2D colorTexture, float2 uv, float2 texelUnit, float2 texelOffset)
 {
-	return SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, my_point_clamp_sampler, uv + _BlitTexture_TexelSize.xy * texelOffset, 0).xyz;
+	return SAMPLE_TEXTURE2D_X_LOD(colorTexture, my_point_clamp_sampler, uv + texelUnit * texelOffset, 0).xyz;
 }
 
-void AdjustColorBox(inout half3 boxMin, inout half3 boxMax, inout half3 moment1, inout half3 moment2, float2 uv, half currX, half currY)
+void AdjustColorBox(Texture2D colorTexture, float2 texelUnit, inout half3 boxMin, inout half3 boxMax, inout half3 moment1, inout half3 moment2, float2 uv,
+                    half currX, half currY)
 {
-	half3 color = SampleColorPoint(uv, float2(currX, currY));
+	half3 color = SampleColorPoint(colorTexture, uv, texelUnit, float2(currX, currY));
 	boxMin = min(color, boxMin);
 	boxMax = max(color, boxMax);
 	moment1 += color;

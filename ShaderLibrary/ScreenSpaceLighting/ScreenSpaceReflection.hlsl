@@ -14,6 +14,32 @@
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/CommonLighting.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/ImageBasedLighting.hlsl"
 
+
+// Camera or Per Object motion vectors.
+TEXTURE2D_X(_MotionVectorTexture);
+float4 _MotionVectorTexture_TexelSize;
+
+// Previous frame reflection color
+TEXTURE2D_X(_ScreenSpaceReflectionHistoryTexture);
+
+// Store hitUV.xy and fresnel.z
+TEXTURE2D_X(_ScreenSpaceReflectionHitTexture);
+
+
+CBUFFER_START(SSRConst)
+    half _Seed;
+    half _MinSmoothness;
+    half _FadeSmoothness;
+    half _EdgeFade;
+    half _Thickness;
+    half _StepSize;
+    half _StepSizeMultiplier;
+    half _MaxStep;
+    half _DownSample;
+    half _AccumulationFactor;
+CBUFFER_END
+
+
 TEXTURE2D_X_HALF(_GBuffer0); // color.rgb + materialFlags.a
 TEXTURE2D_X_HALF(_GBuffer1); // specular.rgb + oclusion.a
 TEXTURE2D_X_HALF(_GBuffer2); // normalWS.rgb + smoothness.a
@@ -122,9 +148,9 @@ half3 ImportanceSampleGGX_VNDF(float2 random, half3 normalWS, half3 viewDirWS, h
 
 void HitSurfaceDataFromGBuffers(float2 screenUV, inout half3 albedo, inout half3 specular, inout half occlusion, inout half3 normal, inout half smoothness)
 {
-    half4 gBuffer0 = SAMPLE_TEXTURE2D_X_LOD(_GBuffer0, my_point_clamp_sampler, screenUV, 0);
-    half4 gBuffer1 = SAMPLE_TEXTURE2D_X_LOD(_GBuffer1, my_point_clamp_sampler, screenUV, 0);
-    half4 gBuffer2 = SAMPLE_TEXTURE2D_X_LOD(_GBuffer2, my_point_clamp_sampler, screenUV, 0);
+    half4 gBuffer0 = SAMPLE_TEXTURE2D_X_LOD(_GBuffer0, sampler_PointClamp, screenUV, 0);
+    half4 gBuffer1 = SAMPLE_TEXTURE2D_X_LOD(_GBuffer1, sampler_PointClamp, screenUV, 0);
+    half4 gBuffer2 = SAMPLE_TEXTURE2D_X_LOD(_GBuffer2, sampler_PointClamp, screenUV, 0);
 
     albedo = gBuffer0.rgb;
     specular = (UnpackMaterialFlags(gBuffer0.a) == kMaterialFlagSpecularSetup) ? gBuffer1.rgb : lerp(kDieletricSpec.rgb, max(albedo.rgb, kDieletricSpec.rgb), gBuffer1.r); // Specular & Metallic setup conversion

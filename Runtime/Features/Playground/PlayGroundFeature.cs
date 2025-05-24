@@ -1,5 +1,4 @@
 ﻿using UnityEngine.Rendering.Universal;
-using URP_Extension.Features.Playground;
 
 namespace Features.Playground
 {

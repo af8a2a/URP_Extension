@@ -1,13 +1,11 @@
 ﻿using Features.Utility;
-using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
-using URP_Extension.Features.Utility;
 
-namespace Features.MipGenerator
+namespace Features.MipmapGenerator
 {
     public partial class MipGenerator
     {
