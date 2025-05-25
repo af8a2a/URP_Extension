@@ -1,0 +1,4 @@
+[submodule "Editor/LWGUI"]
+	path = Editor/LWGUI
+	url = https://github.com/af8a2a/Custom_LWGUI.git
+	branch = 1.x
