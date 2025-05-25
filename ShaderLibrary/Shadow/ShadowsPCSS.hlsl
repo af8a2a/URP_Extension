@@ -193,7 +193,7 @@ float PCSSFilter(float sampleCount, float filterSize, float3 shadowCoord, float2
 #define FILTER_SIZE_PREFILTER           (0.3)
 #define FILTER_SIZE_BLOCKER             (0.2)
 #define PREFILTER_SAMPLE_COUNT          (32)
-#define BLOCKER_SAMPLE_COUNT            (16)
+#define BLOCKER_SAMPLE_COUNT            (64)
 #define PCSS_SAMPLE_COUNT               (32)
 #define DIR_LIGHT_PENUMBRA_WIDTH        _DirLightShadowPenumbraParams.x
 
