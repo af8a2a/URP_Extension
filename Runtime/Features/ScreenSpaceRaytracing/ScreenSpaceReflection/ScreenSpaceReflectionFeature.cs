@@ -1,4 +1,7 @@
-﻿using UnityEngine.Rendering.Universal;
+﻿using System;
+using Features.Core;
+using Features.CoreFeature;
+using UnityEngine.Rendering.Universal;
 using URP_Extension.Features.ScreenSpaceRaytracing;
 
 namespace Features.ScreenSpaceRaytracing.ScreenSpaceReflection
@@ -9,20 +12,25 @@ namespace Features.ScreenSpaceRaytracing.ScreenSpaceReflection
         ForwardGBufferPass m_GBufferPass;
         BackfaceDepthPass m_BackfaceDepthPass;
         ScreenSpaceReflectionPass m_ScreenSpaceReflectionPass;
-        private readonly string[] m_GBufferPassNames = new string[] { "UniversalGBuffer" };
 
         public override void Create()
         {
-            m_GBufferPass = new ForwardGBufferPass(m_GBufferPassNames);
             m_BackfaceDepthPass = new BackfaceDepthPass();
             m_ScreenSpaceReflectionPass = new ScreenSpaceReflectionPass();
         }
 
+        private void OnEnable()
+        {
+            ForwardGBufferManager.instance.UseGBufferPasses();
+        }
+
+        private void OnDisable()
+        {
+            ForwardGBufferManager.instance.ReleaseGBufferPasses();
+        }
+
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
         {
-            
-
-            renderer.EnqueuePass(m_GBufferPass);
             renderer.EnqueuePass(m_BackfaceDepthPass);
             renderer.EnqueuePass(m_ScreenSpaceReflectionPass);
         }

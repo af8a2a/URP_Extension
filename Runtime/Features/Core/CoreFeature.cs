@@ -1,15 +1,18 @@
 ﻿using Features.ColorPyramid;
+using Features.CoreFeature;
 using Features.HierarchyZGenerator;
 using UnityEngine.Rendering.Universal;
-using URP_Extension.Features.ColorPyramid;
 
-namespace Features.CoreFeature
+namespace Features.Core
 {
     [DisallowMultipleRendererFeature]
     public class CoreFeature : ScriptableRendererFeature
     {
+        private readonly string[] m_GBufferPassNames = new string[] { "UniversalGBuffer" };
+
         HierarchyZPass pass;
         ColorPyramidPass colorPyramid;
+        ForwardGBufferPass forwardGBufferPass;
 
         public override void Create()
         {
@@ -21,11 +24,17 @@ namespace Features.CoreFeature
             {
                 renderPassEvent = RenderPassEvent.AfterRenderingTransparents
             };
+            forwardGBufferPass = new ForwardGBufferPass(m_GBufferPassNames);
         }
 
 
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
         {
+            var deferred = renderingData.universalRenderingData.renderingMode is RenderingMode.Deferred;
+            if (ForwardGBufferManager.instance.EnableGBufferPasses() && !deferred)
+            {
+                renderer.EnqueuePass(forwardGBufferPass);
+            }
 
             renderer.EnqueuePass(pass);
             renderer.EnqueuePass(colorPyramid);
