@@ -26,5 +26,10 @@ namespace Features.Sky
         {
             renderer.EnqueuePass(_pass);
         }
+
+        protected override void Dispose(bool disposing)
+        {
+            SkySystem.ClearAll();
+        }
     }
 }

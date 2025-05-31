@@ -4,6 +4,7 @@ using Features.MipmapGenerator;
 using Features.Utility;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
+using UnityEngine.LowLevel;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
@@ -126,9 +127,6 @@ namespace Features.Sky
             }
         }
 
-        SkySystem()
-        {
-        }
 
 
         static class Profiling

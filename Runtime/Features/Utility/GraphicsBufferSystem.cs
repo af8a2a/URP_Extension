@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
+using UnityEngine.Rendering.Universal;
 
 namespace URP_Extension.Features.Utility
 {
@@ -59,6 +60,7 @@ namespace URP_Extension.Features.Utility
 
         GraphicsBufferSystem()
         {
+            ExternalSystemManager.DisposeEvents += ClearAll;
         }
 
         internal static GraphicsBufferSystem instance

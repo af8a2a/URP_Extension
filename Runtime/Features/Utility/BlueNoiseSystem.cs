@@ -3,6 +3,7 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
+using UnityEngine.Rendering.Universal;
 
 namespace URP_Extension.Features.Utility
 {
@@ -87,6 +88,7 @@ namespace URP_Extension.Features.Utility
 
             InitTextures(128, TextureFormat.R16, m_Textures128R, out m_TextureArray128R, out m_TextureHandle128R);
             InitTextures(128, TextureFormat.RG32, m_Textures128RG, out m_TextureArray128RG, out m_TextureHandle128RG);
+            ExternalSystemManager.DisposeEvents += ClearAll;
         }
 
         public static readonly int s_STBNVec1Texture = Shader.PropertyToID("_STBNVec1Texture");
@@ -176,5 +178,12 @@ namespace URP_Extension.Features.Utility
             cmd.SetComputeTextureParam(computeShader, kernel, texID, texture);
             cmd.SetComputeIntParam(computeShader, s_STBNIndex, frameCount % blueNoiseArraySize);
         }
+        
+        public static void ClearAll()
+        {
+            Instance?.Dispose();
+            m_Instance = null;
+        }
+
     }
 }
