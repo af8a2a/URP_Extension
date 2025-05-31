@@ -1,4 +1,5 @@
 ﻿using System;
+using Features.Utility;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -26,17 +27,6 @@ namespace URP_Extension.Features.Utility
 
         public static int blueNoiseArraySize = 64;
 
-        /// <summary>
-        /// STBN, Spatial-Temporal Blue Noise, vec1
-        /// </summary>
-        [SerializeField] //[Reload("Textures/STBN/vec1/stbn_vec1_2Dx1D_128x128x64_{0}.png", 0, 64)]
-        internal Texture2D[] m_Textures128R = new Texture2D[64];
-
-        /// <summary>
-        /// STBN, Spatial-Temporal Blue Noise, vec1
-        /// </summary>
-        [SerializeField] //[Reload("Textures/STBN/vec2/stbn_vec1_2Dx1D_128x128x64_{0}.png", 0, 64)]
-        internal Texture2D[] m_Textures128RG = new Texture2D[64];
 
 
         [ResourceFormattedPaths("", 0, 64)] Texture2DArray m_TextureArray128R;
@@ -45,21 +35,6 @@ namespace URP_Extension.Features.Utility
         RTHandle m_TextureHandle128R;
         RTHandle m_TextureHandle128RG;
 
-        /// <summary>
-        /// Spatiotemporal blue noise valuse[0,1] with R single-channel 128x128 textures.
-        /// </summary>
-        public Texture2D[] textures128R
-        {
-            get { return m_Textures128R; }
-        }
-
-        /// <summary>
-        /// Spatiotemporal blue noise valuse[0,1] with RG multi-channel 128x128 textures.
-        /// </summary>
-        public Texture2D[] textures128RG
-        {
-            get { return m_Textures128RG; }
-        }
 
         public Texture2DArray textureArray128R
         {
@@ -81,48 +56,70 @@ namespace URP_Extension.Features.Utility
             get { return m_TextureHandle128RG; }
         }
 
+
+        DitheredTextureSet m_DitheredTextureSet1SPP;
+        DitheredTextureSet m_DitheredTextureSet8SPP;
+        DitheredTextureSet m_DitheredTextureSet256SPP;
+
+
         public BlueNoiseSystem()
         {
-            m_Textures128R = Resources.LoadAll<Texture2D>("Textures/STBN/vec1");
-            m_Textures128RG = Resources.LoadAll<Texture2D>("Textures/STBN/vec2");
+            var textures = GraphicsSettings.GetRenderPipelineSettings<RuntimeTexture>();
+            InitTextures(128, TextureFormat.R16, textures.blueNoise128RTex  , out m_TextureArray128R, out m_TextureHandle128R);
+            InitTextures(128, TextureFormat.RG32, textures.blueNoise128RGTex, out m_TextureArray128RG, out m_TextureHandle128RG);
 
-            InitTextures(128, TextureFormat.R16, m_Textures128R, out m_TextureArray128R, out m_TextureHandle128R);
-            InitTextures(128, TextureFormat.RG32, m_Textures128RG, out m_TextureArray128RG, out m_TextureHandle128RG);
+            m_DitheredTextureSet1SPP = new DitheredTextureSet
+            {
+                owenScrambled256Tex = textures.owenScrambled256Tex,
+                scramblingTile = textures.scramblingTile1SPP,
+                rankingTile = textures.rankingTile1SPP,
+                scramblingTex = textures.scramblingTex
+            };
+
+            m_DitheredTextureSet8SPP = new DitheredTextureSet
+            {
+                owenScrambled256Tex = textures.owenScrambled256Tex,
+                scramblingTile = textures.scramblingTile8SPP,
+                rankingTile = textures.rankingTile8SPP,
+                scramblingTex = textures.scramblingTex
+            };
+
+            m_DitheredTextureSet256SPP = new DitheredTextureSet
+            {
+                owenScrambled256Tex = textures.owenScrambled256Tex,
+                scramblingTile = textures.scramblingTile256SPP,
+                rankingTile = textures.rankingTile256SPP,
+                scramblingTex = textures.scramblingTex
+            };
+
+
             ExternalSystemManager.DisposeEvents += ClearAll;
         }
 
         public static readonly int s_STBNVec1Texture = Shader.PropertyToID("_STBNVec1Texture");
         public static readonly int s_STBNVec2Texture = Shader.PropertyToID("_STBNVec2Texture");
         public static readonly int s_STBNIndex = Shader.PropertyToID("_STBNIndex");
+        public static readonly int _OwenScrambledRGTexture = Shader.PropertyToID("_OwenScrambledRGTexture");
+        public static readonly int _OwenScrambledTexture = Shader.PropertyToID("_OwenScrambledTexture");
+        public static readonly int _ScramblingTileXSPP = Shader.PropertyToID("_ScramblingTileXSPP");
+        public static readonly int _RankingTileXSPP = Shader.PropertyToID("_RankingTileXSPP");
+        public static readonly int _ScramblingTexture = Shader.PropertyToID("_ScramblingTexture");
 
 
-        // /// <summary>
-        // /// Initialize BlueNoiseSystem.
-        // /// </summary>
-        // /// <param name="resources"></param>
-        // internal static void Initialize()
-        // {
-        //     if (m_Instance == null)
-        //         m_Instance = new BlueNoiseSystem();
-        // }
+        // Structure that holds all the dithered sampling texture that shall be binded at dispatch time.
+        internal struct DitheredTextureSet
+        {
+            public Texture2D owenScrambled256Tex;
+            public Texture2D scramblingTile;
+            public Texture2D rankingTile;
+            public Texture2D scramblingTex;
+        }
 
-        // /// <summary>
-        // /// Try get blueNoise instance, could be null if not initialized before.
-        // /// </summary>
-        // /// <returns>null if none initialized</returns>
-        // public static BlueNoiseSystem TryGetInstance()
-        // {
-        //     return m_Instance;
-        // }
-        //
-        //
-        // public static void ClearAll()
-        // {
-        //     if (m_Instance != null)
-        //         m_Instance.Dispose();
-        //
-        //     m_Instance = null;
-        // }
+        internal DitheredTextureSet DitheredTextureSet1SPP() => m_DitheredTextureSet1SPP;
+
+        internal DitheredTextureSet DitheredTextureSet8SPP() => m_DitheredTextureSet8SPP;
+
+        internal DitheredTextureSet DitheredTextureSet256SPP() => m_DitheredTextureSet256SPP;
 
         /// <summary>
         /// Cleanups up internal textures.
@@ -179,11 +176,21 @@ namespace URP_Extension.Features.Utility
             cmd.SetComputeIntParam(computeShader, s_STBNIndex, frameCount % blueNoiseArraySize);
         }
         
+        
+        internal static void BindDitheredTextureSet(CommandBuffer cmd, DitheredTextureSet ditheredTextureSet)
+        {
+            cmd.SetGlobalTexture(_OwenScrambledTexture,ditheredTextureSet.owenScrambled256Tex);
+            cmd.SetGlobalTexture(_ScramblingTileXSPP,  ditheredTextureSet.scramblingTile);
+            cmd.SetGlobalTexture(_RankingTileXSPP,     ditheredTextureSet.rankingTile);
+            cmd.SetGlobalTexture(_ScramblingTexture,   ditheredTextureSet.scramblingTex);
+        }
+
+        
+
         public static void ClearAll()
         {
             Instance?.Dispose();
             m_Instance = null;
         }
-
     }
 }

@@ -14,8 +14,8 @@ namespace Features.Filter.IBLFilter
         static readonly int k_PlanarReflectionFilterDepthTex1ID = Shader.PropertyToID("PlanarReflectionFilterDepthTex1");
 
         RenderTexture m_GgxIblSampleData;
-        int m_GgxIblMaxSampleCount = 89;   // Width, mobileis  34 
-        const int k_GgxIblMipCountMinusOne = 6;    // Height (UNITY_SPECCUBE_LOD_STEPS)
+        int m_GgxIblMaxSampleCount = 89; // Width, mobileis  34 
+        const int k_GgxIblMipCountMinusOne = 6; // Height (UNITY_SPECCUBE_LOD_STEPS)
 
         ComputeShader m_ComputeGgxIblSampleDataCS;
         int m_ComputeGgxIblSampleDataKernel = -1;
@@ -36,13 +36,13 @@ namespace Features.Filter.IBLFilter
 
         static IBLFilterGGX m_Instance = null;
 
-        
+
         static class Profiling
         {
             public static ProfilingSampler FilterCubemapGGX = new ProfilingSampler(nameof(FilterCubemapGGX));
         }
-        
-        
+
+
         internal static IBLFilterGGX instance
         {
             get
@@ -60,6 +60,7 @@ namespace Features.Filter.IBLFilter
 
         public IBLFilterGGX() : base()
         {
+            ExternalSystemManager.DisposeEvents += Clean;
         }
 
         public bool IsIblSampleDataInitialized()
@@ -94,7 +95,8 @@ namespace Features.Filter.IBLFilter
                 m_GgxIblSampleData.autoGenerateMips = false;
                 m_GgxIblSampleData.enableRandomWrite = true;
                 m_GgxIblSampleData.filterMode = FilterMode.Point;
-                m_GgxIblSampleData.name = CoreUtils.GetRenderTargetAutoName(m_GgxIblMaxSampleCount, k_GgxIblMipCountMinusOne, 1, GraphicsFormat.R16G16B16A16_SFloat, "GGXIblSampleData");
+                m_GgxIblSampleData.name = CoreUtils.GetRenderTargetAutoName(m_GgxIblMaxSampleCount, k_GgxIblMipCountMinusOne, 1,
+                    GraphicsFormat.R16G16B16A16_SFloat, "GGXIblSampleData");
                 m_GgxIblSampleData.hideFlags = HideFlags.HideAndDontSave;
                 //m_GgxIblSampleData.Create();
 
@@ -112,7 +114,9 @@ namespace Features.Filter.IBLFilter
             for (int i = 0; i < 6; ++i)
             {
                 var lookAt = Matrix4x4.LookAt(Vector3.zero, CoreUtils.lookAtList[i], CoreUtils.upVectorList[i]);
-                m_faceWorldToViewMatrixMatrices[i] = lookAt * Matrix4x4.Scale(new Vector3(1.0f, 1.0f, -1.0f)); // Need to scale -1.0 on Z to match what is being done in the camera.wolrdToCameraMatrix API. ...
+                m_faceWorldToViewMatrixMatrices[i] =
+                    lookAt * Matrix4x4.Scale(new Vector3(1.0f, 1.0f,
+                        -1.0f)); // Need to scale -1.0 on Z to match what is being done in the camera.wolrdToCameraMatrix API. ...
             }
         }
 
@@ -140,7 +144,7 @@ namespace Features.Filter.IBLFilter
 
         private static void CreateIntermediateTextures(CommandBuffer cmd, int texWidth, int texHeight)
         {
-            var probeFormat = GraphicsFormat.B10G11R11_UFloatPack32;// or R16G16B16A16_SFloat
+            var probeFormat = GraphicsFormat.B10G11R11_UFloatPack32; // or R16G16B16A16_SFloat
 
             cmd.GetTemporaryRT(k_PlanarReflectionFilterTex0ID, MakeRenderTextureDescriptor(texWidth, texHeight, probeFormat, true));
             cmd.GetTemporaryRT(k_PlanarReflectionFilterTex1ID, MakeRenderTextureDescriptor(texWidth, texHeight, probeFormat, false));
@@ -154,6 +158,12 @@ namespace Features.Filter.IBLFilter
             cmd.ReleaseTemporaryRT(k_PlanarReflectionFilterTex1ID);
             cmd.ReleaseTemporaryRT(k_PlanarReflectionFilterDepthTex0ID);
             cmd.ReleaseTemporaryRT(k_PlanarReflectionFilterDepthTex1ID);
+        }
+
+
+        public static void Clean()
+        {
+            instance?.Cleanup();
         }
 
         public override void Cleanup()
@@ -171,7 +181,8 @@ namespace Features.Filter.IBLFilter
                 int mipCount = 1 + (int)Mathf.Log(source.width, 2.0f);
                 if (mipCount < (int)EnvConstants.ConvolutionMipCount)
                 {
-                    Debug.LogWarning("RenderCubemapGGXConvolution: Cubemap size is too small for GGX convolution, needs at least " + (int)EnvConstants.ConvolutionMipCount + " mip levels");
+                    Debug.LogWarning("RenderCubemapGGXConvolution: Cubemap size is too small for GGX convolution, needs at least " +
+                                     (int)EnvConstants.ConvolutionMipCount + " mip levels");
                     return;
                 }
 
@@ -202,7 +213,8 @@ namespace Features.Filter.IBLFilter
                     for (int face = 0; face < 6; ++face)
                     {
                         var faceSize = new Vector4(source.width >> mip, source.height >> mip, 1.0f / (source.width >> mip), 1.0f / (source.height >> mip));
-                        var transform = RenderingUtilsExt.ComputePixelCoordToWorldSpaceViewDirectionMatrix(0.5f * Mathf.PI, Vector2.zero, faceSize, worldToViewMatrices[face], true);
+                        var transform = RenderingUtilsExt.ComputePixelCoordToWorldSpaceViewDirectionMatrix(0.5f * Mathf.PI, Vector2.zero, faceSize,
+                            worldToViewMatrices[face], true);
 
                         m_MaterialPropertyBlock.SetMatrix("_PixelCoordToViewDirWS", transform);
 
