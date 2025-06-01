@@ -4,7 +4,7 @@
 
 #ifndef XEGTAO_H_CS_HLSL
 #define XEGTAO_H_CS_HLSL
-// Generated from DELTation.AAAARP.ShaderLibrary.ThirdParty.XeGTAO.XeGTAO+GTAOConstantsCS
+// Generated from Features.AmbientOcclusion.XeGTAO.XeGTAO+GTAOConstantsCS
 // PackingRules = Exact
 CBUFFER_START(GTAOConstantsCS)
     int2 ViewportSize;

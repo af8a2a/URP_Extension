@@ -27,6 +27,41 @@ namespace Features.MipmapGenerator
         }
 
 
+        //assume src format equal to dst
+        public void CopyColor(RenderGraph renderGraph, ContextContainer frameData, TextureHandle src, TextureHandle dst)
+        {
+            using (var builder = renderGraph.AddComputePass<ColorPyramidPassData>("GPU Color Copy", out var passData))
+            {
+                passData.GPUCopyShader = GPUCopyColor;
+                passData.GPUCopyKernelID = GPUCopyColorKernelID;
+                var cameraData = frameData.Get<UniversalCameraData>();
+                passData.width = cameraData.pixelWidth;
+                passData.height = cameraData.pixelHeight;
+
+                passData.colorTexture = src;
+                passData.tempTexture = dst;
+
+                builder.UseTexture(passData.colorTexture);
+                builder.UseTexture(passData.tempTexture, AccessFlags.ReadWrite);
+
+                builder.AllowPassCulling(false);
+
+                builder.SetRenderFunc((ColorPyramidPassData data, ComputeGraphContext context) =>
+                {
+                    var cmd = context.cmd;
+
+
+                    var threadX = RenderingUtilsExt.DivRoundUp(data.width, 8);
+                    var threadY = RenderingUtilsExt.DivRoundUp(data.height, 8);
+
+                    cmd.SetComputeTextureParam(data.GPUCopyShader, data.GPUCopyKernelID, "_Input", data.colorTexture);
+                    cmd.SetComputeTextureParam(data.GPUCopyShader, data.GPUCopyKernelID, "_Output", data.tempTexture);
+                    cmd.DispatchCompute(data.GPUCopyShader, data.GPUCopyKernelID, threadX, threadY, 1);
+                });
+            }
+        }
+
+
         public TextureHandle RenderColorPyramid(RenderGraph renderGraph, ContextContainer frameData)
         {
             using (var builder = renderGraph.AddComputePass<ColorPyramidPassData>("Color Pyramid Generate", out var passData))

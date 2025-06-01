@@ -127,9 +127,6 @@ namespace Features.Core
                 SortingCriteria sortingCriteria = cameraData.defaultOpaqueSortFlags;
                 RendererListDesc rendererListDesc = new RendererListDesc(m_ShaderTagIdList[0],
                     universalRenderingData.cullResults, cameraData.camera);
-                DrawingSettings drawSettings = RenderingUtils.CreateDrawingSettings(m_ShaderTagIdList[0],
-                    universalRenderingData, cameraData, lightData, sortingCriteria);
-                var param = new RendererListParams(universalRenderingData.cullResults, drawSettings, m_filter);
                 rendererListDesc.stateBlock = m_RenderStateBlock;
                 rendererListDesc.sortingCriteria = sortingCriteria;
                 rendererListDesc.renderQueueRange = m_filter.renderQueueRange;

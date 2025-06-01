@@ -1,8 +1,6 @@
 ﻿using System;
-using UnityEngine.Rendering;
-using UnityEngine.Rendering.Universal;
 
-namespace Features.CoreFeature
+namespace Features.Core.Manager
 {
     public class ForwardGBufferManager
     {
@@ -12,7 +10,7 @@ namespace Features.CoreFeature
 
         public static ForwardGBufferManager instance => _instance.Value;
 
-        public void UseGBufferPasses()
+        public void AcquireGBufferPasses()
         {
             NeedGbufferPasses++;
         }

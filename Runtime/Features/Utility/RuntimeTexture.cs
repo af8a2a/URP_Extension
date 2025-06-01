@@ -1,12 +1,16 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 namespace Features.Utility
 {
+    
+    [Serializable]
+    [SupportedOnRenderPipeline(typeof(UniversalRenderPipelineAsset))]
     public class RuntimeTexture : IRenderPipelineResources
     {
-        [SerializeField] private int m_Version;
-
+        [SerializeField][HideInInspector] private int m_Version = 1;
         public int version => m_Version;
 
 
@@ -21,7 +25,7 @@ namespace Features.Utility
 
         [SerializeField] [ResourcePath("Textures/CoherentNoise/OwenScrambledNoise256.png")]
         private Texture2D m_OwenScrambled256Tex;
-
+        
         public Texture2D owenScrambled256Tex
         {
             get => m_OwenScrambled256Tex;

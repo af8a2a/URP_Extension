@@ -7,6 +7,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace Features.MipmapGenerator
 {
+    
     public partial class MipGenerator
     {
         class DepthPyramidPassData

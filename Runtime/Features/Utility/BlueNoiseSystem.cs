@@ -28,7 +28,6 @@ namespace URP_Extension.Features.Utility
         public static int blueNoiseArraySize = 64;
 
 
-
         [ResourceFormattedPaths("", 0, 64)] Texture2DArray m_TextureArray128R;
         Texture2DArray m_TextureArray128RG;
 
@@ -65,31 +64,31 @@ namespace URP_Extension.Features.Utility
         public BlueNoiseSystem()
         {
             var textures = GraphicsSettings.GetRenderPipelineSettings<RuntimeTexture>();
-            InitTextures(128, TextureFormat.R16, textures.blueNoise128RTex  , out m_TextureArray128R, out m_TextureHandle128R);
+            InitTextures(128, TextureFormat.R16, textures.blueNoise128RTex, out m_TextureArray128R, out m_TextureHandle128R);
             InitTextures(128, TextureFormat.RG32, textures.blueNoise128RGTex, out m_TextureArray128RG, out m_TextureHandle128RG);
 
             m_DitheredTextureSet1SPP = new DitheredTextureSet
             {
-                owenScrambled256Tex = textures.owenScrambled256Tex,
-                scramblingTile = textures.scramblingTile1SPP,
-                rankingTile = textures.rankingTile1SPP,
-                scramblingTex = textures.scramblingTex
+                owenScrambled256Tex = RTHandles.Alloc(textures.owenScrambled256Tex),
+                scramblingTile = RTHandles.Alloc(textures.scramblingTile1SPP),
+                rankingTile = RTHandles.Alloc(textures.rankingTile1SPP),
+                scramblingTex = RTHandles.Alloc(textures.scramblingTex)
             };
 
             m_DitheredTextureSet8SPP = new DitheredTextureSet
             {
-                owenScrambled256Tex = textures.owenScrambled256Tex,
-                scramblingTile = textures.scramblingTile8SPP,
-                rankingTile = textures.rankingTile8SPP,
-                scramblingTex = textures.scramblingTex
+                owenScrambled256Tex = RTHandles.Alloc(textures.owenScrambled256Tex),
+                scramblingTile = RTHandles.Alloc(textures.scramblingTile8SPP),
+                rankingTile = RTHandles.Alloc(textures.rankingTile8SPP),
+                scramblingTex = RTHandles.Alloc(textures.scramblingTex)
             };
 
             m_DitheredTextureSet256SPP = new DitheredTextureSet
             {
-                owenScrambled256Tex = textures.owenScrambled256Tex,
-                scramblingTile = textures.scramblingTile256SPP,
-                rankingTile = textures.rankingTile256SPP,
-                scramblingTex = textures.scramblingTex
+                owenScrambled256Tex = RTHandles.Alloc(textures.owenScrambled256Tex),
+                scramblingTile = RTHandles.Alloc(textures.scramblingTile256SPP),
+                rankingTile = RTHandles.Alloc(textures.rankingTile256SPP),
+                scramblingTex = RTHandles.Alloc(textures.scramblingTex)
             };
 
 
@@ -107,12 +106,20 @@ namespace URP_Extension.Features.Utility
 
 
         // Structure that holds all the dithered sampling texture that shall be binded at dispatch time.
-        internal struct DitheredTextureSet
+        internal struct DitheredTextureSet : IDisposable
         {
-            public Texture2D owenScrambled256Tex;
-            public Texture2D scramblingTile;
-            public Texture2D rankingTile;
-            public Texture2D scramblingTex;
+            public RTHandle owenScrambled256Tex;
+            public RTHandle scramblingTile;
+            public RTHandle rankingTile;
+            public RTHandle scramblingTex;
+
+            public void Dispose()
+            {
+                owenScrambled256Tex?.Release();
+                scramblingTile?.Release();
+                rankingTile?.Release();
+                scramblingTex?.Release();
+            }
         }
 
         internal DitheredTextureSet DitheredTextureSet1SPP() => m_DitheredTextureSet1SPP;
@@ -131,6 +138,14 @@ namespace URP_Extension.Features.Utility
 
             RTHandles.Release(m_TextureHandle128R);
             RTHandles.Release(m_TextureHandle128RG);
+
+            RTHandles.Release(m_TextureHandle128R);
+            RTHandles.Release(m_TextureHandle128RG);
+
+
+            m_DitheredTextureSet1SPP.Dispose();
+            m_DitheredTextureSet8SPP.Dispose();
+            m_DitheredTextureSet256SPP.Dispose();
 
             m_TextureArray128R = null;
             m_TextureArray128RG = null;
@@ -175,17 +190,34 @@ namespace URP_Extension.Features.Utility
             cmd.SetComputeTextureParam(computeShader, kernel, texID, texture);
             cmd.SetComputeIntParam(computeShader, s_STBNIndex, frameCount % blueNoiseArraySize);
         }
-        
-        
-        internal static void BindDitheredTextureSet(CommandBuffer cmd, DitheredTextureSet ditheredTextureSet)
+
+
+        public class DitheredTextureHandleSet
         {
-            cmd.SetGlobalTexture(_OwenScrambledTexture,ditheredTextureSet.owenScrambled256Tex);
-            cmd.SetGlobalTexture(_ScramblingTileXSPP,  ditheredTextureSet.scramblingTile);
-            cmd.SetGlobalTexture(_RankingTileXSPP,     ditheredTextureSet.rankingTile);
-            cmd.SetGlobalTexture(_ScramblingTexture,   ditheredTextureSet.scramblingTex);
+            public TextureHandle owenScrambled256Tex;
+            public TextureHandle scramblingTile;
+            public TextureHandle rankingTile;
+            public TextureHandle scramblingTex;
         }
 
-        
+
+        internal static void BindDitheredTextureSet(ComputeShader computeShader, int kernel, ComputeCommandBuffer cmd,
+            DitheredTextureHandleSet ditheredTextureSet)
+        {
+            cmd.SetComputeTextureParam(computeShader, kernel, _OwenScrambledTexture, ditheredTextureSet.owenScrambled256Tex);
+            cmd.SetComputeTextureParam(computeShader, kernel, _ScramblingTileXSPP, ditheredTextureSet.scramblingTile);
+            cmd.SetComputeTextureParam(computeShader, kernel, _RankingTileXSPP, ditheredTextureSet.rankingTile);
+            cmd.SetComputeTextureParam(computeShader, kernel, _ScramblingTexture, ditheredTextureSet.scramblingTex);
+        }
+
+        internal static void BindDitheredTextureSet(ComputeCommandBuffer cmd, DitheredTextureHandleSet ditheredTextureSet)
+        {
+            cmd.SetGlobalTexture(_OwenScrambledTexture, (ditheredTextureSet.owenScrambled256Tex));
+            cmd.SetGlobalTexture(_ScramblingTileXSPP, (ditheredTextureSet.scramblingTile));
+            cmd.SetGlobalTexture(_RankingTileXSPP, (ditheredTextureSet.rankingTile));
+            cmd.SetGlobalTexture(_ScramblingTexture, (ditheredTextureSet.scramblingTex));
+        }
+
 
         public static void ClearAll()
         {
