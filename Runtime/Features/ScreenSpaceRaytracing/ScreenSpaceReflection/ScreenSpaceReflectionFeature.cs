@@ -1,6 +1,6 @@
 ﻿using System;
 using Features.Core;
-using Features.CoreFeature;
+using Features.Core.Manager;
 using UnityEngine.Rendering.Universal;
 using URP_Extension.Features.ScreenSpaceRaytracing;
 
@@ -19,9 +19,10 @@ namespace Features.ScreenSpaceRaytracing.ScreenSpaceReflection
             m_ScreenSpaceReflectionPass = new ScreenSpaceReflectionPass();
         }
 
-        private void OnEnable()
+        public override void OnEnable()
         {
-            ForwardGBufferManager.instance.UseGBufferPasses();
+            ForwardGBufferManager.instance.AcquireGBufferPasses();
+            base.OnEnable();
         }
 
         private void OnDisable()
