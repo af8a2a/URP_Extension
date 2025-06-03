@@ -1,10 +1,15 @@
-﻿namespace Features.Postprocessing.Exposure
+﻿using UnityEngine.Rendering;
+using UnityEngine.Rendering.RenderGraphModule;
+using UnityEngine.Rendering.Universal;
+
+namespace Features.Postprocessing.Exposure
 {
-    public class ExposurePass
+    public partial class ExposurePass:ScriptableRenderPass
     {
-        void DoFixedExposure()
+        public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
         {
-            
+            DoFixedExposure(renderGraph, frameData);
         }
+
     }
 }
