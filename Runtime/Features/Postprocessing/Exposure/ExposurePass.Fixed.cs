@@ -10,26 +10,6 @@ namespace Features.Postprocessing.Exposure
 {
     public partial class ExposurePass
     {
-        public class ShaderIDs
-        {
-            public static readonly int _ExposureTexture = Shader.PropertyToID("_ExposureTexture");
-
-            public static readonly int _PrevExposureTexture = Shader.PropertyToID("_PrevExposureTexture");
-
-            // Note that this is a separate name because is bound locally to a exposure shader, while _PrevExposureTexture is bound globally for everything else.
-            public static readonly int _PreviousExposureTexture = Shader.PropertyToID("_PreviousExposureTexture");
-            public static readonly int _ExposureDebugTexture = Shader.PropertyToID("_ExposureDebugTexture");
-            public static readonly int _ExposureParams = Shader.PropertyToID("_ExposureParams");
-            public static readonly int _ExposureParams2 = Shader.PropertyToID("_ExposureParams2");
-
-            public static readonly int _InputTexture = Shader.PropertyToID("_InputTexture");
-            public static readonly int _InputTexture2 = Shader.PropertyToID("_InputTexture2");
-            public static readonly int _InputTextureArray = Shader.PropertyToID("_InputTextureArray");
-            public static readonly int _InputTextureMSAA = Shader.PropertyToID("_InputTextureMSAA");
-            public static readonly int _OutputTexture = Shader.PropertyToID("_OutputTexture");
-            public static readonly int _SourceTexture = Shader.PropertyToID("_SourceTexture");
-        }
-
 
         internal static void SetExposureTextureToEmpty(RTHandle exposureTexture)
         {

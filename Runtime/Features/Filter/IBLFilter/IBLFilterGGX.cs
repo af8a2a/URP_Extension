@@ -170,6 +170,7 @@ namespace Features.Filter.IBLFilter
         {
             CoreUtils.Destroy(m_convolveMaterial);
             CoreUtils.Destroy(m_GgxIblSampleData);
+            m_GgxIblSampleData = null;
         }
 
         void FilterCubemapCommon(CommandBuffer cmd,

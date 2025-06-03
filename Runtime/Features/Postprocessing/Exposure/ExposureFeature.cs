@@ -10,9 +10,10 @@ namespace Features.Postprocessing.Exposure
         {
             exposurePass = new ExposurePass()
             {
-                renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing
+                renderPassEvent = RenderPassEvent.BeforeRenderingPostProcessing
             };
         }
+        
 
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
         {

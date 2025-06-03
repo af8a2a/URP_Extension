@@ -680,7 +680,6 @@ namespace Features.Sky
             if (skyRenderer != null)
                 skyRenderer.Cleanup();
             skyRenderer = null;
-
             RTHandles.Release(m_BlackCubmapRT);
             RTHandles.Release(m_SkyboxCubemapRT);
             RTHandles.Release(m_SkyboxBSDFCubemapRT);
@@ -691,6 +690,7 @@ namespace Features.Sky
                 m_AmbientProbeResult.Release();
             if (m_DiffuseAmbientProbeBuffer != null)
                 m_DiffuseAmbientProbeBuffer.Release();
+            m_Instance = null;
         }
 
         public static class ShaderConstants
